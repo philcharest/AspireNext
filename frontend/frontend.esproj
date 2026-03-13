@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.1738743">
+  <PropertyGroup>
+    <StartupCommand>npm run dev</StartupCommand>
+    <JavaScriptTestFramework>Jest</JavaScriptTestFramework>
+    <!-- Allows Aspire to manage the port -->
+    <PublishCommand>npm run build</PublishCommand>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove=".next\**" />
+    <None Remove="node_modules\**" />
+    <TypeScriptConfiguration Remove=".next\**" />
+    <TypeScriptConfiguration Remove="node_modules\**" />
+  </ItemGroup>
+</Project>
