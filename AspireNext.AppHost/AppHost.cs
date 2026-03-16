@@ -6,12 +6,21 @@ var server = builder.AddProject<Projects.AspireNext_Server>("server")
     .WithReference(cache)
     .WaitFor(cache)
     .WithHttpHealthCheck("/health")
-    .WithExternalHttpEndpoints();
+    .WithExternalHttpEndpoints()
+    .PublishAsAzureContainerApp((infrastructure, app) =>
+    {
+        app.Template.Scale.MinReplicas = 0; // Scales down to $0 when idle
+    });
+
 // 2. Reference the Next.js Frontend using the .esproj
 // Note: "frontend" here matches the name in the Projects namespace
 builder.AddJavaScriptApp("frontend", "../frontend")
     .WithHttpEndpoint(env: "PORT")
     .WithExternalHttpEndpoints()
-    .WithReference(server);
+    .WithReference(server)
+    .PublishAsAzureContainerApp((infrastructure, app) =>
+    {
+        app.Template.Scale.MinReplicas = 0; // Scales down to $0 when idle
+    });
 
 builder.Build().Run();
