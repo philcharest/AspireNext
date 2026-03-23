@@ -1,0 +1,204 @@
+.main {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 48rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2xl) var(--spacing-lg);
+  background-color: var(--color-background);
+  margin-top: var(--spacing-lg);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+.logo {
+  filter: invert(var(--logo-invert, 0));
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-sans);
+  max-width: 20rem;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.description {
+  font-family: var(--font-sans);
+  max-width: 28rem;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.link {
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-secondary);
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+
+.link:hover {
+  color: var(--color-secondary-dark);
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-sans);
+}
+
+@media (min-width: 640px) {
+  .buttons {
+    flex-direction: row;
+  }
+
+  .main {
+    align-items: flex-start;
+  }
+
+  .content {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+.primaryButton {
+  display: flex;
+  height: 3rem;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border-radius: 9999px;
+  background-color: var(--color-primary);
+  color: var(--color-background);
+  text-decoration: none;
+  transition: background-color var(--transition-base);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  border: none;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  background-color: var(--color-primary-light);
+}
+
+@media (min-width: 768px) {
+  .primaryButton {
+    width: 9.875rem;
+  }
+}
+
+.secondaryButton {
+  display: flex;
+  height: 3rem;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background-color: transparent;
+  text-decoration: none;
+  transition: background-color var(--transition-base), border-color var(--transition-base);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  background-color: var(--color-muted-background);
+  border-color: transparent;
+}
+
+@media (min-width: 768px) {
+  .secondaryButton {
+    width: 9.875rem;
+  }
+}
+
+.buttonIcon {
+  filter: invert(var(--logo-invert, 0));
+}
+
+.weatherSection {
+  margin-top: var(--spacing-lg);
+  width: 100%;
+}
+
+.sectionTitle {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+  color: var(--color-primary);
+  margin: 0 0 var(--spacing-md) 0;
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+.weatherBox {
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-muted-background);
+}
+
+.serverUrl {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-muted);
+  margin: 0 0 var(--spacing-md) 0;
+  line-height: var(--line-height-normal);
+}
+
+.error {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-error);
+  margin: 0;
+  line-height: var(--line-height-normal);
+}
+
+.weatherList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.weatherItem {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-muted);
+  line-height: var(--line-height-normal);
+  margin: 0;
+}
