@@ -9,6 +9,7 @@ export default async function Home() {
     let error = null;
 
     try {
+        console.log("Connecting to:", serverUrl);
         // Calling the default .NET WeatherForecast endpoint
         const response = await fetch(`${serverUrl}/api/weatherforecast`, {
             cache: 'no-store' // Ensures we get fresh data on every reload

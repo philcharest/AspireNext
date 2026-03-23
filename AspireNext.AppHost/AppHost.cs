@@ -21,9 +21,11 @@ var server = builder.AddProject<Projects.AspireNext_Server>("server")
 // 2. Reference the Next.js Frontend using the .esproj
 // Note: "frontend" here matches the name in the Projects namespace
 builder.AddJavaScriptApp("frontend", "../frontend")
-    .WithHttpEndpoint(env: "PORT")
+    .WithHttpEndpoint(port: 80, targetPort: 3000, name: "http") // Maps external 80 to internal 3000
     .WithExternalHttpEndpoints()
     .WithReference(server)
+    // Add this to ensure azd performs a deployment
+    .PublishAsDockerFile()
     .PublishAsAzureContainerApp((infrastructure, app) =>
     {
         app.Template.Scale.MinReplicas = 0; // Scales down to $0 when idle
