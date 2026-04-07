@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="AspireNext.AppHost/AspireNext.AppHost.csproj" />
+  <Project Path="AspireNext.ImageGenerator/AspireNext.ImageGenerator.csproj" />
   <Project Path="AspireNext.Server/AspireNext.Server.csproj" />
   <Project Path="frontend/frontend.esproj">
     <Build />
