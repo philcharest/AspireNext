@@ -7,6 +7,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.NetworkInformation;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,7 +18,7 @@ class Program
     private static readonly HttpClient _httpClient = new();
     private const string PerchanceUrl = "https://perchance.org/image-synthesis-prompt-generator";
     private const string ComfyUIUrl = "http://127.0.0.1:8188";
-    private const int StartupTimeoutSeconds = 60;
+    private const int StartupTimeoutSeconds = 120;
 
     static async Task Main(string[] args)
     {
@@ -31,17 +34,21 @@ class Program
 
             // Step 2: Start ComfyUI
             Console.WriteLine("Step 2: Starting ComfyUI...");
-            Process comfyProcess = StartComfyUI();
-            Console.WriteLine("✓ ComfyUI process started (PID: {0})", comfyProcess.Id);
+            Process? comfyProcess = StartComfyUI();
+            if (comfyProcess != null )
+                Console.WriteLine("✓ ComfyUI process started (PID: {0})", comfyProcess?.Id);
 
             // Step 3: Wait for ComfyUI to be accessible
             Console.WriteLine($"Step 3: Waiting for ComfyUI to be ready at {ComfyUIUrl}...");
             await WaitForComfyUIReady();
             Console.WriteLine("✓ ComfyUI is ready!\n");
 
+            // Call ComfyUI API
+            await Call_ComfyUI_Api();
+
             // Step 4: Open browser and interact with ComfyUI
             Console.WriteLine("Step 4: Opening ComfyUI in browser and injecting prompt...");
-            await InjectPromptAndGenerate(prompt);
+            //await InjectPromptAndGenerate(prompt);
             Console.WriteLine("✓ Prompt injected and generation started!\n");
 
             Console.WriteLine("===========================================");
@@ -144,64 +151,65 @@ class Program
         }
     }
 
-    static Process StartComfyUI()
+    public static bool IsComfyUiPortActive(int port = 8188)
     {
-        var comfyUIDir = GetComfyUIDirectory();
-        var pythonPath = Path.Combine(comfyUIDir, "python_embeded", "python.exe");
+        // Get all active TCP listeners
+        IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
+        TcpConnectionInformation[] connections = properties.GetActiveTcpConnections();
+        System.Net.IPEndPoint[] listeners = properties.GetActiveTcpListeners();
 
-        if (!File.Exists(pythonPath))
+        // Check if any listener is on our port
+        return listeners.Any(l => l.Port == port);
+    }
+
+    public static bool IsComfyProcessRunning(out Process? process)
+    {
+        process = null;
+        // Note: Portable ComfyUI often runs as "python"
+        // This looks for any process named python
+        Process[] processes = Process.GetProcessesByName("python");
+
+        foreach (var proc in processes)
         {
-            throw new Exception($"Embedded Python not found at {pythonPath}. Please ensure ComfyUI is properly installed.");
+            try
+            {
+                // Optional: Check if the process started from your specific C: folder
+                if (proc.MainModule!.FileName.Contains("ComfyUI"))
+                {
+                    process = proc;
+                    return true;
+                }
+            }
+            catch { /* Access denied on some system processes */ }
         }
 
+        return false;
+    }
+
+    static Process? StartComfyUI()
+    {
+        // Use the port check as a fallback
+        if (IsComfyUiPortActive())
+        {
+            Console.WriteLine("✓ ComfyUI is already up.");
+            return null;
+        }
         var psi = new ProcessStartInfo
         {
-            FileName = pythonPath,
-            Arguments = "-s ComfyUI/main.py --windows-standalone-build --fast fp16_accumulation",
-            UseShellExecute = false,
-            RedirectStandardOutput = false,
-            RedirectStandardError = false,
-            CreateNoWindow = false,
-            WorkingDirectory = comfyUIDir
+            FileName = "run_nvidia_gpu_fast_fp16_accumulation.bat",
+            WorkingDirectory = @"C:\ComfyUI_windows_portable",
+            UseShellExecute = false,          // Required to redirect output or hide windows
+            CreateNoWindow = false            // Set to true if you want it hidden
         };
 
         var process = Process.Start(psi);
+        
         if (process == null)
         {
             throw new Exception("Failed to start ComfyUI process");
         }
 
         return process;
-    }
-
-
-    static string GetComfyUIDirectory()
-    {
-        // Common ComfyUI installation locations
-        var possiblePaths = new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "ComfyUI"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Desktop", "ComfyUI"),
-            Path.Combine(Directory.GetCurrentDirectory(), "ComfyUI")
-        };
-
-        foreach (var path in possiblePaths)
-        {
-            if (Directory.Exists(path) && File.Exists(Path.Combine(path, "main.py")))
-            {
-                return path;
-            }
-        }
-
-        Console.Write("ComfyUI directory not found automatically. Enter the path to ComfyUI folder: ");
-        var customPath = Console.ReadLine();
-        
-        if (Directory.Exists(customPath) && File.Exists(Path.Combine(customPath, "main.py")))
-        {
-            return customPath;
-        }
-
-        throw new Exception($"ComfyUI not found at {customPath}");
     }
 
     static async Task WaitForComfyUIReady()
@@ -227,6 +235,34 @@ class Program
         }
 
         throw new Exception($"ComfyUI did not start within {StartupTimeoutSeconds} seconds");
+    }
+
+    private static async Task<string> QueuePrompt(string json)
+    {
+        using var client = new HttpClient();
+
+        // Wrap the workflow in a "prompt" object
+        var payload = new { prompt = JsonSerializer.Deserialize<object>(json) };
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("http://127.0.0.1:8188/prompt", content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        // This returns a 'prompt_id' which you use to track the progress
+        return responseBody;
+    }
+
+    public static async Task<string> Call_ComfyUI_Api()
+    {
+        // Load the JSON you exported from ComfyUI
+        string workflowJson = File.ReadAllText("SD3.5M_example_workflow.json");
+
+        if (string.IsNullOrEmpty(workflowJson))
+        {
+            throw new Exception("No file found or file is empty");
+        }
+
+        return await QueuePrompt(workflowJson);
     }
 
     static async Task InjectPromptAndGenerate(string prompt)
@@ -269,7 +305,7 @@ class Program
 
             Console.WriteLine("Locating Run button...");
             // Find and click the Run button
-            var runButton = wait.Until(d => d.FindElement(By.CssSelector("button[id*='queue']")));
+            var runButton = wait.Until(d => d.FindElement(By.XPath("//button[@class=\"p-button p-component p-button-primary p-button-sm p-splitbutton-button\"]")));
             runButton.Click();
 
             Console.WriteLine("✓ Generation started!");
