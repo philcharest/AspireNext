@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -44,7 +45,7 @@ class Program
             Console.WriteLine("✓ ComfyUI is ready!\n");
 
             // Call ComfyUI API
-            await Call_ComfyUI_Api();
+            await Call_ComfyUI_Api(prompt);
 
             // Step 4: Open browser and interact with ComfyUI
             Console.WriteLine("Step 4: Opening ComfyUI in browser and injecting prompt...");
@@ -188,6 +189,8 @@ class Program
 
     static Process? StartComfyUI()
     {
+        var baseDir = @"C:\ComfyUI_windows_portable";
+        var scriptName = "run_nvidia_gpu_fast_fp16_accumulation.bat";
         // Use the port check as a fallback
         if (IsComfyUiPortActive())
         {
@@ -196,10 +199,14 @@ class Program
         }
         var psi = new ProcessStartInfo
         {
-            FileName = "run_nvidia_gpu_fast_fp16_accumulation.bat",
-            WorkingDirectory = @"C:\ComfyUI_windows_portable",
-            UseShellExecute = false,          // Required to redirect output or hide windows
-            CreateNoWindow = false            // Set to true if you want it hidden
+            // Combine them so the system knows exactly where the file is
+            FileName = Path.Combine(baseDir, scriptName),
+
+            // Keep this so the .bat file can find its internal ComfyUI folders
+            WorkingDirectory = baseDir,
+
+            UseShellExecute = false,
+            CreateNoWindow = false
         };
 
         var process = Process.Start(psi);
@@ -252,100 +259,24 @@ class Program
         return responseBody;
     }
 
-    public static async Task<string> Call_ComfyUI_Api()
+    public static async Task<string> Call_ComfyUI_Api(string prompt)
     {
         // Load the JSON you exported from ComfyUI
         string workflowJson = File.ReadAllText("SD3.5M_example_workflow.json");
-
+        
         if (string.IsNullOrEmpty(workflowJson))
         {
             throw new Exception("No file found or file is empty");
         }
+        // --- STEP 1 & 2: Parse and Modify ---
+        var workflow = JsonNode.Parse(workflowJson);
 
-        return await QueuePrompt(workflowJson);
-    }
+        // Change the prompt
+        workflow!["6"]!["inputs"]!["text"] = prompt;
 
-    static async Task InjectPromptAndGenerate(string prompt)
-    {
-        IWebDriver driver = null;
-        try
-        {
-            var options = new ChromeOptions();
-            // Uncomment if you want headless mode
-            // options.AddArgument("--headless");
-            
-            driver = new ChromeDriver(options);
-            
-            Console.WriteLine("Opening browser...");
-            driver.Navigate().GoToUrl(ComfyUIUrl);
+        // Change the seed (essential for getting new images)
+        workflow!["294"]!["inputs"]!["seed"] = Random.Shared.NextInt64();
 
-            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
-
-            Console.WriteLine("Waiting for ComfyUI interface to load...");
-            wait.Until(d => d.FindElements(By.CssSelector("canvas, .node")).Count > 0);
-            
-            await Task.Delay(2000); // Give UI time to fully render
-
-            Console.WriteLine("Locating CLIP Text Encode node...");
-            // Wait for and find the CLIP Text Encode node
-            var textEncodeNode = wait.Until(d => FindClipTextEncodeNode(d));
-            
-            if (textEncodeNode == null)
-            {
-                throw new Exception("Could not find CLIP Text Encode node. Make sure a workflow is loaded in ComfyUI.");
-            }
-
-            Console.WriteLine("Injecting prompt...");
-            // Find the textarea within the node and input the prompt
-            var textArea = textEncodeNode.FindElement(By.CssSelector("textarea"));
-            textArea.Clear();
-            textArea.SendKeys(prompt);
-
-            await Task.Delay(1000);
-
-            Console.WriteLine("Locating Run button...");
-            // Find and click the Run button
-            var runButton = wait.Until(d => d.FindElement(By.XPath("//button[@class=\"p-button p-component p-button-primary p-button-sm p-splitbutton-button\"]")));
-            runButton.Click();
-
-            Console.WriteLine("✓ Generation started!");
-            await Task.Delay(2000);
-        }
-        finally
-        {
-            driver?.Quit();
-        }
-    }
-
-    static IWebElement FindClipTextEncodeNode(IWebDriver driver)
-    {
-        try
-        {
-            // Look for nodes/elements containing "CLIP Text Encode"
-            var nodes = driver.FindElements(By.CssSelector(".node, [class*='node']"));
-            
-            foreach (var node in nodes)
-            {
-                try
-                {
-                    var text = node.Text;
-                    if (text.Contains("CLIP Text Encode") || text.Contains("Clip Text") || text.Contains("Text Encode"))
-                    {
-                        return node;
-                    }
-                }
-                catch { }
-            }
-
-            // Alternative: Look for textarea elements in node container
-            var textareas = driver.FindElements(By.CssSelector("textarea"));
-            if (textareas.Count > 0)
-            {
-                return textareas[0].FindElement(By.XPath("./ancestor::*[contains(@class, 'node') or contains(@class, 'widget')]"));
-            }
-        }
-        catch { }
-
-        return null;
+        return await QueuePrompt(workflow.ToJsonString());
     }
 }
