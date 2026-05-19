@@ -263,19 +263,37 @@ class Program
     {
         // Load the JSON you exported from ComfyUI
         string workflowJson = File.ReadAllText("SD3.5M_example_workflow.json");
-        
+
         if (string.IsNullOrEmpty(workflowJson))
         {
             throw new Exception("No file found or file is empty");
         }
+
         // --- STEP 1 & 2: Parse and Modify ---
         var workflow = JsonNode.Parse(workflowJson);
 
-        // Change the prompt
-        workflow!["6"]!["inputs"]!["text"] = prompt;
+        // 1. Inject Style Modifiers into the Prompt
+        // This forces the model to adopt Van Gogh's signature impasto brushstrokes and vivid oil paint textures.
+        string stylizedPrompt = $"{prompt}, painting. rich vibrant colors, masterpiece, highly detailed, crisp focus";
+        workflow!["6"]!["inputs"]!["text"] = stylizedPrompt;
 
-        // Change the seed (essential for getting new images)
-        workflow!["294"]!["inputs"]!["seed"] = Random.Shared.NextInt64();
+        // 2. Randomize the Seed
+        workflow!["294"]!["inputs"]!["seed"] = 376121516;
+
+        // 3. Optimize Sampler Settings for Crisp Textures
+        // Note: Verify the node IDs (e.g., "294" or "3") match your specific KSampler node in the JSON.
+        if (workflow!["294"]?["inputs"] != null)
+        {
+            // Increase steps for finer detail resolution (typically 30-40 is great for SD 3.5 details)
+            workflow!["294"]!["inputs"]!["steps"] = 30;
+
+            // A slightly higher CFG scale (around 5.5 to 7.0) helps enforce the prompt styling strictly
+            workflow!["294"]!["inputs"]!["cfg"] = 3.0;
+
+            // 'dpmpp_2m' or 'euler' paired with 'karras' or 'sgm_uniform' works exceptionally well for painting textures
+            workflow!["294"]!["inputs"]!["sampler_name"] = "euler";
+            workflow!["294"]!["inputs"]!["scheduler"] = "sgm_uniform";
+        }
 
         return await QueuePrompt(workflow.ToJsonString());
     }
