@@ -1,7 +1,4 @@
-using HtmlAgilityPack;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
+using AspireNext.ImageGenerator;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -17,205 +14,157 @@ using System.Threading.Tasks;
 class Program
 {
     private static readonly HttpClient _httpClient = new();
-    private const string PerchanceUrl = "https://perchance.org/image-synthesis-prompt-generator";
     private const string ComfyUIUrl = "http://127.0.0.1:8188";
     private const int StartupTimeoutSeconds = 120;
+    private const string WorkflowPath = "commercial_print_workflow_sdxl.json";
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
 
     static async Task Main(string[] args)
     {
-        try
+        Console.WriteLine("🎨 ComfyUI auto-generator — per-trend recipes");
+        Console.WriteLine($"Running every {Interval.TotalMinutes} minutes. Leave this window open.\n");
+
+        // Start ComfyUI ONCE (the port check skips it if already running).
+        StartComfyUI();
+        await WaitForComfyUIReady();
+        Console.WriteLine("✓ ComfyUI ready. Starting timer loop...\n");
+
+        using var timer = new PeriodicTimer(Interval);
+
+        // do/while: run immediately, then every interval. One failure won't kill the loop.
+        do
         {
-            Console.WriteLine("🎨 ComfyUI Image Generation Workflow Started");
-            Console.WriteLine("===========================================\n");
-
-            // Step 1: Scrape prompt text from Perchance
-            Console.WriteLine("Step 1: Scraping prompt from Perchance...");
-            string prompt = await ScrapePromptFromPerchance();
-            Console.WriteLine($"✓ Generated prompt: {prompt}\n");
-
-            // Step 2: Start ComfyUI
-            Console.WriteLine("Step 2: Starting ComfyUI...");
-            Process? comfyProcess = StartComfyUI();
-            if (comfyProcess != null )
-                Console.WriteLine("✓ ComfyUI process started (PID: {0})", comfyProcess?.Id);
-
-            // Step 3: Wait for ComfyUI to be accessible
-            Console.WriteLine($"Step 3: Waiting for ComfyUI to be ready at {ComfyUIUrl}...");
-            await WaitForComfyUIReady();
-            Console.WriteLine("✓ ComfyUI is ready!\n");
-
-            // Call ComfyUI API
-            await Call_ComfyUI_Api(prompt);
-
-            // Step 4: Open browser and interact with ComfyUI
-            Console.WriteLine("Step 4: Opening ComfyUI in browser and injecting prompt...");
-            //await InjectPromptAndGenerate(prompt);
-            Console.WriteLine("✓ Prompt injected and generation started!\n");
-
-            Console.WriteLine("===========================================");
-            Console.WriteLine("✓ Workflow completed successfully!");
-            Console.WriteLine("Check your ComfyUI browser window for the generated image.");
-        }
-        catch (Exception ex)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ Error: {ex.Message}");
-            Console.ResetColor();
-            if (ex.InnerException != null)
+            try
             {
-                Console.WriteLine($"Details: {ex.InnerException.Message}");
+                GenerationRequest request = await GenerateTextPrompt();
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Trend : {request.Trend.Name}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Prompt: {request.Prompt}");
+
+                await Call_ComfyUI_Api(request);
+
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ✓ Queued. Next run in {Interval.TotalMinutes} min.\n");
             }
-            Environment.Exit(1);
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ❌ {ex.Message}");
+                Console.ResetColor();
+            }
         }
+        while (await timer.WaitForNextTickAsync());
     }
 
-    static async Task<string> ScrapePromptFromPerchance()
+    public static async Task<GenerationRequest> GenerateTextPrompt()
     {
-        IWebDriver driver = null;
-        try
+        return await TextGenerator.GetPerfectlyMatchedPromptAsync();
+    }
+
+    public static async Task<string> Call_ComfyUI_Api(GenerationRequest request)
+    {
+        string workflowJson = File.ReadAllText(WorkflowPath);
+        if (string.IsNullOrEmpty(workflowJson))
+            throw new Exception($"Workflow file is empty or not found: {WorkflowPath}");
+
+        var workflow = JsonNode.Parse(workflowJson);
+        ArtTrend trend = request.Trend;
+
+        // 1. Positive prompt -> node 6. Prepend the LoRA trigger word (if any), then add a
+        //    framing directive so the output IS the artwork (full-frame), not a photo of a canvas.
+        const string framing = ", full frame flat artwork, fills the entire frame edge to edge, no frame, no border, no canvas edges, no mockup";
+        string positive = request.Prompt + framing;
+        if (!string.IsNullOrEmpty(trend.LoraTrigger))
+            positive = trend.LoraTrigger + ", " + positive;
+        workflow!["6"]!["inputs"]!["text"] = positive;
+
+        // 2. Negative: the base lives in the JSON (node 71) so it's easy to manage there.
+        //    We only append this trend's specific additions on top of it.
+        string baseNegative = workflow!["71"]!["inputs"]!["text"]!.GetValue<string>();
+        if (!string.IsNullOrEmpty(trend.NegativeAdds))
+            workflow!["71"]!["inputs"]!["text"] = baseNegative + ", " + trend.NegativeAdds;
+
+        // 3. Per-trend render recipe
+        workflow!["402"]!["inputs"]!["model_name"] = trend.Upscaler;    // upscaler choice
+        workflow!["401"]!["inputs"]!["denoise"] = trend.RefineDenoise;  // hires refine strength
+        workflow!["294"]!["inputs"]!["cfg"] = trend.Cfg;               // pass 1 CFG
+        workflow!["401"]!["inputs"]!["cfg"] = trend.Cfg;               // pass 2 CFG
+
+        // 3b. LoRA: configure node 500 for trends that have one, or bypass it for trends that don't.
+        if (string.IsNullOrEmpty(trend.LoraName))
         {
-            Console.WriteLine("Opening Perchance generator in browser...");
-            var options = new ChromeOptions();
-            // options.AddArgument("--headless");
-
-            driver = new ChromeDriver(options);
-            driver.Navigate().GoToUrl(PerchanceUrl);
-            Console.WriteLine("Waiting for page to load...");
-            await Task.Delay(2000);
-            driver.Manage().Window.Maximize();
-            driver.SwitchTo().Frame(1);
-            Console.WriteLine("Locating and clicking 'Randomize' button...");
-            driver.FindElement(By.XPath("//button[contains(text(),'randomize')]")).Click();
-            var result = driver.FindElement(By.CssSelector("p:nth-child(4)")).Text;
-
-            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
-
-            
-
-            // Find and click the randomize button
-            var randomizeButton = wait.Until(d => 
-            {
-                return driver.FindElement(By.XPath("//button[contains(text(),'randomize')]"));
-            });
-
-            if (randomizeButton == null)
-            {
-                throw new Exception("Could not find 'Randomize' button on Perchance generator");
-            }
-
-            randomizeButton.Click();
-            Console.WriteLine("✓ Randomize button clicked");
-
-            Console.WriteLine("Waiting for prompt to be generated...");
-            await Task.Delay(2000);
-
-            // Wait for the output to be generated
-            var outputElement = wait.Until(d => 
-            {
-                try
-                {
-                    // Look for output in common element types
-                    var element = driver.FindElement(By.CssSelector("p:nth-child(4)"));
-                    if (element != null && element.Displayed)
-                    {
-                        return element;
-                    }
-                    return null;
-                }
-                catch
-                {
-                    return null;
-                }
-            });
-
-            if (outputElement == null)
-            {
-                throw new Exception("Could not find generated prompt after clicking Randomize");
-            }
-
-            var prompt = outputElement.Text.Trim();
-            if (string.IsNullOrEmpty(prompt))
-            {
-                throw new Exception("Generated prompt is empty");
-            }
-
-            Console.WriteLine("✓ Prompt successfully generated");
-            return prompt;
+            // No LoRA: wire model + clip straight from the checkpoint and drop the loader node.
+            workflow!["294"]!["inputs"]!["model"] = MakeLink("4", 0);
+            workflow!["401"]!["inputs"]!["model"] = MakeLink("4", 0);
+            workflow!["6"]!["inputs"]!["clip"] = MakeLink("4", 1);
+            workflow!["71"]!["inputs"]!["clip"] = MakeLink("4", 1);
+            workflow!.AsObject().Remove("500");
         }
-        catch (Exception ex)
+        else
         {
-            throw new Exception($"Failed to scrape Perchance: {ex.Message}", ex);
+            workflow!["500"]!["inputs"]!["lora_name"] = trend.LoraName;
+            workflow!["500"]!["inputs"]!["strength_model"] = trend.LoraStrength;
+            workflow!["500"]!["inputs"]!["strength_clip"] = trend.LoraStrength;
         }
-        finally
-        {
-            driver?.Quit();
-        }
+
+        // 4. Fresh random seeds every run. Random.Shared avoids same-millisecond collisions
+        //    that a `new Random()` would cause when the timer fires runs close together.
+        long mainSeed = Random.Shared.NextInt64(0, 999_999_999_999_999);
+        workflow!["294"]!["inputs"]!["seed"] = mainSeed;
+        workflow!["401"]!["inputs"]!["seed"] = Random.Shared.NextInt64(0, 999_999_999_999_999);
+
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Seed {mainSeed} | Upscaler {trend.Upscaler} | Denoise {trend.RefineDenoise} | CFG {trend.Cfg}");
+
+        return await QueuePrompt(workflow!.ToJsonString());
+    }
+
+    // Builds a ComfyUI node connection, e.g. ["4", 0], for rewiring inputs at runtime.
+    private static JsonArray MakeLink(string nodeId, int outputIndex) =>
+        new JsonArray(JsonValue.Create(nodeId), JsonValue.Create(outputIndex));
+
+    private static async Task<string> QueuePrompt(string json)
+    {
+        var payload = new { prompt = JsonSerializer.Deserialize<object>(json) };
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{ComfyUIUrl}/prompt", content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"ComfyUI rejected the prompt ({(int)response.StatusCode}): {responseBody}");
+
+        return responseBody; // contains prompt_id for progress tracking
     }
 
     public static bool IsComfyUiPortActive(int port = 8188)
     {
-        // Get all active TCP listeners
         IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
-        TcpConnectionInformation[] connections = properties.GetActiveTcpConnections();
         System.Net.IPEndPoint[] listeners = properties.GetActiveTcpListeners();
-
-        // Check if any listener is on our port
         return listeners.Any(l => l.Port == port);
-    }
-
-    public static bool IsComfyProcessRunning(out Process? process)
-    {
-        process = null;
-        // Note: Portable ComfyUI often runs as "python"
-        // This looks for any process named python
-        Process[] processes = Process.GetProcessesByName("python");
-
-        foreach (var proc in processes)
-        {
-            try
-            {
-                // Optional: Check if the process started from your specific C: folder
-                if (proc.MainModule!.FileName.Contains("ComfyUI"))
-                {
-                    process = proc;
-                    return true;
-                }
-            }
-            catch { /* Access denied on some system processes */ }
-        }
-
-        return false;
     }
 
     static Process? StartComfyUI()
     {
         var baseDir = @"C:\ComfyUI_windows_portable";
         var scriptName = "run_nvidia_gpu_fast_fp16_accumulation.bat";
-        // Use the port check as a fallback
+
         if (IsComfyUiPortActive())
         {
             Console.WriteLine("✓ ComfyUI is already up.");
             return null;
         }
+
         var psi = new ProcessStartInfo
         {
-            // Combine them so the system knows exactly where the file is
             FileName = Path.Combine(baseDir, scriptName),
-
-            // Keep this so the .bat file can find its internal ComfyUI folders
             WorkingDirectory = baseDir,
-
             UseShellExecute = false,
             CreateNoWindow = false
         };
 
         var process = Process.Start(psi);
-        
         if (process == null)
-        {
             throw new Exception("Failed to start ComfyUI process");
-        }
 
+        Console.WriteLine($"✓ ComfyUI process started (PID: {process.Id})");
         return process;
     }
 
@@ -242,59 +191,5 @@ class Program
         }
 
         throw new Exception($"ComfyUI did not start within {StartupTimeoutSeconds} seconds");
-    }
-
-    private static async Task<string> QueuePrompt(string json)
-    {
-        using var client = new HttpClient();
-
-        // Wrap the workflow in a "prompt" object
-        var payload = new { prompt = JsonSerializer.Deserialize<object>(json) };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-        var response = await client.PostAsync("http://127.0.0.1:8188/prompt", content);
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        // This returns a 'prompt_id' which you use to track the progress
-        return responseBody;
-    }
-
-    public static async Task<string> Call_ComfyUI_Api(string prompt)
-    {
-        // Load the JSON you exported from ComfyUI
-        string workflowJson = File.ReadAllText("SD3.5M_example_workflow.json");
-
-        if (string.IsNullOrEmpty(workflowJson))
-        {
-            throw new Exception("No file found or file is empty");
-        }
-
-        // --- STEP 1 & 2: Parse and Modify ---
-        var workflow = JsonNode.Parse(workflowJson);
-
-        // 1. Inject Style Modifiers into the Prompt
-        // This forces the model to adopt Van Gogh's signature impasto brushstrokes and vivid oil paint textures.
-        string stylizedPrompt = $"{prompt}, painting. rich vibrant colors, masterpiece, highly detailed, crisp focus";
-        workflow!["6"]!["inputs"]!["text"] = stylizedPrompt;
-
-        // 2. Randomize the Seed
-        workflow!["294"]!["inputs"]!["seed"] = 376121516;
-
-        // 3. Optimize Sampler Settings for Crisp Textures
-        // Note: Verify the node IDs (e.g., "294" or "3") match your specific KSampler node in the JSON.
-        if (workflow!["294"]?["inputs"] != null)
-        {
-            // Increase steps for finer detail resolution (typically 30-40 is great for SD 3.5 details)
-            workflow!["294"]!["inputs"]!["steps"] = 30;
-
-            // A slightly higher CFG scale (around 5.5 to 7.0) helps enforce the prompt styling strictly
-            workflow!["294"]!["inputs"]!["cfg"] = 3.0;
-
-            // 'dpmpp_2m' or 'euler' paired with 'karras' or 'sgm_uniform' works exceptionally well for painting textures
-            workflow!["294"]!["inputs"]!["sampler_name"] = "euler";
-            workflow!["294"]!["inputs"]!["scheduler"] = "sgm_uniform";
-        }
-
-        return await QueuePrompt(workflow.ToJsonString());
     }
 }
