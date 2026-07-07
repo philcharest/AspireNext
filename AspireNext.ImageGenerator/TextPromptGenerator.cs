@@ -42,67 +42,39 @@ namespace AspireNext.ImageGenerator
         {
             new ArtTrend {
                 Name = "Japandi Minimalist",
-                Aesthetic = "Japandi, Wabi-Sabi minimalist canvas art, organic plaster texture, soft matte finish",
+                Aesthetic = "Japandi, Wabi-Sabi minimalist, organic plaster texture, soft matte finish",
                 ColorPalette = "warm beige, soft terracotta, muted sage green, and cream",
                 Subjects = new[] {
                     "abstract interlocking geometric shapes and flowing botanical lines",
                     "a serene foggy mountain peak with a single ink-washed pine tree",
-                    "minimalist abstract continuous line art of a monstera leaf"
+                    "an ink wash still life of a steaming bowl of japanese ramen with chopsticks resting on the rim"
                 },
                 // Soft style comes from the prompt + gentle upscaler + ink LoRA.
                 // The refine pass still needs enough strength to clean up artifacts.
                 Upscaler = "remacri_original.safetensors",
-                RefineDenoise = 0.45,
+                RefineDenoise = 0.30,
                 Cfg = 5.0,
-                NegativeAdds = "sharp harsh edges, high contrast, glossy, neon, cluttered, busy, oversaturated",
+                NegativeAdds = "sharp harsh edges, high contrast, glossy, neon, cluttered, busy, oversaturated, calligraphy, kanji, hanko, red seal stamp, chop mark, chinese characters, artist signature",
                 LoraName = "ink-style_A3.1_XL.safetensors",
                 LoraStrength = 0.8,
                 LoraTrigger = "ink-style, ink_wash_painting"   // triggers for ink-style_A3.1_XL
-            },
-            new ArtTrend {
-                Name = "1970s Retro Groovy",
-                Aesthetic = "1970s Retro Groovy, mid-century modern screenprint poster style",
-                ColorPalette = "burnt orange, mustard yellow, avocado green, and deep chocolate brown",
-                Subjects = new[] {
-                    "overlapping psychedelic wavy lines and melting geometric fluid shapes",
-                    "a stylized retro sunburst rising over modular abstract hills",
-                    "bold, chunky floral patterns with a vintage matte ink texture"
-                },
-                // Bold graphic poster look: crisp is good
-                Upscaler = "4x-UltraSharp.pth",
-                RefineDenoise = 0.45,
-                Cfg = 5.5,
-                NegativeAdds = "photorealism, muted washed out colors, gritty, dark, gloomy"
-            },
-            new ArtTrend {
-                Name = "Moody Dark Academia",
-                Aesthetic = "Moody Dark Academia, dramatic chiaroscuro vintage oil painting",
-                ColorPalette = "deep emerald green, rich mahogany wood tones, and antique gold accents",
-                Subjects = new[] {
-                    "an oversized moody botanical study of deep red roses and dark foliage",
-                    "a still life of antique leather books, a brass hourglass, and a candle",
-                    "a majestic cinematic owl perched on a twisted oak branch at twilight"
-                },
-                // Dramatic detail: crisp upscaler, moderate refine
-                Upscaler = "4x-UltraSharp.pth",
-                RefineDenoise = 0.40,
-                Cfg = 5.5,
-                NegativeAdds = "bright, cheerful, pastel, flat lighting, low detail, washed out"
             },
             new ArtTrend {
                 Name = "Vibrant Cyberpunk",
                 Aesthetic = "Vibrant Cyberpunk, high-contrast digital synthwave concept art",
                 ColorPalette = "electric indigo, neon hot magenta, vivid cyan, and deep obsidian black",
                 Subjects = new[] {
-                    "a moody rainy futuristic city street corner illuminated by neon signs",
-                    "a sleek mechanical mecha-cyberpunk helmet with glowing visors",
-                    "an abstract digital web of fiber optic neural network pathways"
+                    "a moody rainy futuristic city street corner illuminated by glowneon signs",
+                    "a white honda accord with glowing white headlights with bridge in the background sparks"
                 },
                 // Hard neon edges: sharpest upscaler, strongest refine + CFG
                 Upscaler = "4x-UltraSharp.pth",
-                RefineDenoise = 0.50,
+                RefineDenoise = 0.35,
                 Cfg = 6.0,
-                NegativeAdds = "dull, muted, washed out, flat lighting, low contrast, daytime"
+                NegativeAdds = "dull, muted, washed out, flat lighting, low contrast, daytime",
+                LoraName = "glowneon_xl_v1.safetensors",
+                LoraStrength = 0.8,
+                LoraTrigger = "glowneon, glowing, sparks, lightning"
             }
         };
 
@@ -115,7 +87,7 @@ namespace AspireNext.ImageGenerator
             string selectedSubject = selectedTrend.Subjects[rand.Next(selectedTrend.Subjects.Length)];
 
             string fallback =
-                $"Premium canvas wall art: {selectedSubject}, in {selectedTrend.Aesthetic} style, color palette of {selectedTrend.ColorPalette}.";
+                $"{selectedSubject}, in {selectedTrend.Aesthetic} style, color palette of {selectedTrend.ColorPalette}.";
 
             // No token configured -> skip the LLM and use the curated template (reliable + free).
             if (string.IsNullOrEmpty(HfToken))
@@ -133,7 +105,7 @@ namespace AspireNext.ImageGenerator
                     new { role = "system", content = "You are a professional interior design art director. Combine the provided aesthetic, subject, and color palette into one single, cohesive, premium descriptive sentence for an image AI. Do not use conversational intro/outro text." },
                     new { role = "user", content = $"Aesthetic: {selectedTrend.Aesthetic}. Subject: {selectedSubject}. Color Scheme: {selectedTrend.ColorPalette}." }
                 },
-                max_tokens = 80,
+                max_tokens = 100,
                 temperature = 0.5
             };
 

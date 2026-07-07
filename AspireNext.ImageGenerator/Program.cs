@@ -17,7 +17,7 @@ class Program
     private const string ComfyUIUrl = "http://127.0.0.1:8188";
     private const int StartupTimeoutSeconds = 120;
     private const string WorkflowPath = "commercial_print_workflow_sdxl.json";
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(10);
 
     static async Task Main(string[] args)
     {
@@ -70,8 +70,8 @@ class Program
 
         // 1. Positive prompt -> node 6. Prepend the LoRA trigger word (if any), then add a
         //    framing directive so the output IS the artwork (full-frame), not a photo of a canvas.
-        const string framing = ", full frame flat artwork, fills the entire frame edge to edge, no frame, no border, no canvas edges, no mockup";
-        string positive = request.Prompt + framing;
+        const string framing = "full frame flat artwork, fills the entire frame edge to edge, no border, ";
+        string positive = framing + request.Prompt;
         if (!string.IsNullOrEmpty(trend.LoraTrigger))
             positive = trend.LoraTrigger + ", " + positive;
         workflow!["6"]!["inputs"]!["text"] = positive;
@@ -85,8 +85,8 @@ class Program
         // 3. Per-trend render recipe
         workflow!["402"]!["inputs"]!["model_name"] = trend.Upscaler;    // upscaler choice
         workflow!["401"]!["inputs"]!["denoise"] = trend.RefineDenoise;  // hires refine strength
-        workflow!["294"]!["inputs"]!["cfg"] = trend.Cfg;               // pass 1 CFG
-        workflow!["401"]!["inputs"]!["cfg"] = trend.Cfg;               // pass 2 CFG
+        workflow!["294"]!["inputs"]!["cfg"] = trend.Cfg;
+        workflow!["401"]!["inputs"]!["cfg"] = Math.Max(3.5, trend.Cfg - 1.0);              // pass 2 CFG
 
         // 3b. LoRA: configure node 500 for trends that have one, or bypass it for trends that don't.
         if (string.IsNullOrEmpty(trend.LoraName))
@@ -96,6 +96,7 @@ class Program
             workflow!["401"]!["inputs"]!["model"] = MakeLink("4", 0);
             workflow!["6"]!["inputs"]!["clip"] = MakeLink("4", 1);
             workflow!["71"]!["inputs"]!["clip"] = MakeLink("4", 1);
+            workflow!["450"]!["inputs"]!["model"] = MakeLink("4", 0);
             workflow!.AsObject().Remove("500");
         }
         else
@@ -110,6 +111,10 @@ class Program
         long mainSeed = Random.Shared.NextInt64(0, 999_999_999_999_999);
         workflow!["294"]!["inputs"]!["seed"] = mainSeed;
         workflow!["401"]!["inputs"]!["seed"] = Random.Shared.NextInt64(0, 999_999_999_999_999);
+        workflow!["450"]!["inputs"]!["seed"] = Random.Shared.NextInt64(0, 999_999_999_999_999);
+        workflow!["450"]!["inputs"]!["cfg"] = Math.Max(3.5, trend.Cfg - 1.0);
+        workflow!["450"]!["inputs"]!["batch_size"] = 1;
+
 
         Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Seed {mainSeed} | Upscaler {trend.Upscaler} | Denoise {trend.RefineDenoise} | CFG {trend.Cfg}");
 
