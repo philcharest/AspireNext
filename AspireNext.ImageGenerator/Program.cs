@@ -114,6 +114,7 @@ class Program
         workflow!["450"]!["inputs"]!["seed"] = Random.Shared.NextInt64(0, 999_999_999_999_999);
         workflow!["450"]!["inputs"]!["cfg"] = Math.Max(3.5, trend.Cfg - 1.0);
         workflow!["450"]!["inputs"]!["batch_size"] = 1;
+        workflow!["450"]!["inputs"]!["denoise"] = trend.TiledDenoise;
 
 
         Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Seed {mainSeed} | Upscaler {trend.Upscaler} | Denoise {trend.RefineDenoise} | CFG {trend.Cfg}");

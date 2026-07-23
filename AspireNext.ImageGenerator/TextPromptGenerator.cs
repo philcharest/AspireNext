@@ -25,6 +25,10 @@ namespace AspireNext.ImageGenerator
         public string LoraName { get; set; } = string.Empty;        // file in models/loras (empty = no LoRA)
         public double LoraStrength { get; set; } = 0.8;             // LoRA weight when one is set
         public string LoraTrigger { get; set; } = string.Empty;     // trigger word prepended to the prompt
+        public double TiledDenoise { get; set; } = 0.20;
+
+        // Japandi:   TiledDenoise = 0.10,
+        // Cyberpunk: TiledDenoise = 0.20,
     }
 
     // Carries BOTH the final prompt and the trend recipe back to the caller.
@@ -47,7 +51,13 @@ namespace AspireNext.ImageGenerator
                 Subjects = new[] {
                     "abstract interlocking geometric shapes and flowing botanical lines",
                     "a serene foggy mountain peak with a single ink-washed pine tree",
-                    "an ink wash still life of a steaming bowl of japanese ramen with chopsticks resting on the rim"
+                    "a steaming bowl of japanese ramen with chopsticks resting on the rim",
+                    "a single plum blossom branch in soft ink wash against empty negative space",
+                    "three smooth stacked zen stones beside gently raked sand garden lines",
+                    "a lone crane standing in still shallow water, sparse ink wash",
+                    "an empty ceramic teapot and cup on a low wooden table, soft ink wash",
+                    "a quiet bamboo grove dissolving into morning mist",
+                    "a thin crescent moon above low rolling hills, minimal ink wash"
                 },
                 // Soft style comes from the prompt + gentle upscaler + ink LoRA.
                 // The refine pass still needs enough strength to clean up artifacts.
@@ -57,24 +67,8 @@ namespace AspireNext.ImageGenerator
                 NegativeAdds = "sharp harsh edges, high contrast, glossy, neon, cluttered, busy, oversaturated, calligraphy, kanji, hanko, red seal stamp, chop mark, chinese characters, artist signature",
                 LoraName = "ink-style_A3.1_XL.safetensors",
                 LoraStrength = 0.8,
-                LoraTrigger = "ink-style, ink_wash_painting"   // triggers for ink-style_A3.1_XL
-            },
-            new ArtTrend {
-                Name = "Vibrant Cyberpunk",
-                Aesthetic = "Vibrant Cyberpunk, high-contrast digital synthwave concept art",
-                ColorPalette = "electric indigo, neon hot magenta, vivid cyan, and deep obsidian black",
-                Subjects = new[] {
-                    "a moody rainy futuristic city street corner illuminated by glowneon signs",
-                    "a white honda accord with glowing white headlights with bridge in the background sparks"
-                },
-                // Hard neon edges: sharpest upscaler, strongest refine + CFG
-                Upscaler = "4x-UltraSharp.pth",
-                RefineDenoise = 0.35,
-                Cfg = 6.0,
-                NegativeAdds = "dull, muted, washed out, flat lighting, low contrast, daytime",
-                LoraName = "glowneon_xl_v1.safetensors",
-                LoraStrength = 0.8,
-                LoraTrigger = "glowneon, glowing, sparks, lightning"
+                LoraTrigger = "ink-style, ink_wash_painting" ,  // triggers for ink-style_A3.1_XL
+                TiledDenoise = 0.10,
             }
         };
 
