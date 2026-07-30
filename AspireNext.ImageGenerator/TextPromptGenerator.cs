@@ -44,91 +44,96 @@ namespace AspireNext.ImageGenerator
         private static readonly List<ArtTrend> TrendLibrary = new()
         {
             new ArtTrend {
-                Name = "Japandi Minimalist",
-                Aesthetic = "Japandi, Wabi-Sabi minimalist, organic plaster texture, soft matte finish",
-                ColorPalette = "warm beige, soft terracotta, muted sage green, and cream",
+                Name = "Japandi Ink Wash",
+                // FIXES vs before: (1) medium ("sumi-e ink wash painting") now LEADS the aesthetic so the
+                // style anchors the image instead of trailing after the subject; (2) NegativeAdds now kills
+                // photorealism explicitly (this is why the teapot came out as a photo); (3) dropped the
+                // concrete still-life / figurative subjects that pull JuggernautXL back toward photography,
+                // keeping nature subjects the ink LoRA handles well; (4) LoRA strength 0.8 -> 0.9.
+                Aesthetic = "sumi-e ink wash painting, japandi wabi-sabi minimalism, loose expressive brush "
+                          + "strokes, soft bleeding ink gradients, visible rice-paper texture, generous empty "
+                          + "negative space, hand-painted, matte",
+                ColorPalette = "sumi ink black and soft grey, warm beige, faded terracotta, muted sage green, aged cream paper",
                 Subjects = new[] {
-                    "abstract interlocking geometric shapes and flowing botanical lines",
-                    "a serene foggy mountain peak with a single ink-washed pine tree",
-                    "a single plum pink cherry blossom branch in soft ink wash against empty negative space",
-                    "big successive waves crashing on a beach with a full red sun in the sky in background",
-                    "a lone crane standing in still shallow water, sparse ink wash",
-                    "an empty ceramic teapot and cup on a low wooden table, soft ink wash",
-                    "a quiet bamboo grove dissolving into morning mist",
-                    "a thin crescent moon above low rolling hills, minimal ink wash",
-                    "chinese man with long hair and playing flute on top of castle"
+                    "a single gnarled plum branch with a few pink cherry blossoms sweeping in from one corner, asymmetric",
+                    "one lone windswept pine on a misty ridge with vast open sky",
+                    "three overlapping mountain silhouettes dissolving into pale mist",
+                    "a solitary crane wading in still shallow water among sparse reeds",
+                    "a few koi drifting beneath loosely suggested ripples",
+                    "a stand of bamboo bending in the wind, dry-brush strokes on blank paper",
+                    "a small wooden boat on a glassy lake under a low pale moon",
+                    "layered fog over distant hills with a thin crescent moon, quiet and sparse",
+                    "tall wild grasses arcing from the lower corner into empty space"
                 },
-                // Soft style comes from the prompt + gentle upscaler + ink LoRA.
-                // The refine pass still needs enough strength to clean up artifacts.
                 Upscaler = "remacri_original.safetensors",
                 RefineDenoise = 0.30,
-                Cfg = 5.0,
-                NegativeAdds = "sharp harsh edges, high contrast, glossy, neon, cluttered, busy, oversaturated, calligraphy, kanji, hanko, red seal stamp, chop mark, chinese characters, artist signature",
+                Cfg = 5.5,
+                NegativeAdds = "photograph, photorealistic, realistic, photo, dslr, 3d render, cgi, octane, "
+                             + "depth of field, bokeh, sharp focus, glossy, plastic, hyperrealistic, high "
+                             + "contrast, neon, cluttered, busy, oversaturated, kanji, hanzi, hanko, red seal "
+                             + "stamp, chop mark, chinese characters, artist signature",
                 LoraName = "ink-style_A3.1_XL.safetensors",
-                LoraStrength = 0.8,
-                LoraTrigger = "ink-style, ink_wash_painting" ,  // triggers for ink-style_A3.1_XL
+                LoraStrength = 0.9,
+                LoraTrigger = "ink-style, ink_wash_painting",
                 TiledDenoise = 0.10,
             },
             new ArtTrend {
                 Name = "Warm Earth-Tone Abstract",
-                // NOTE: the Civitai LoRA that inspired this (models/1269071) is a FLUX LoRA and
-                // will NOT load on an SDXL checkpoint, so this trend runs LoRA-free on JuggernautXL.
-                // Its descriptive trigger words work fine here as plain SDXL style tokens;
-                // "illustration001" is dropped because it only means anything with that LoRA loaded.
-                Aesthetic = "minimalist illustration, warm muted colors, grainy paper texture, "
-                          + "soft diffused lighting, bold geometric shapes, mid-century modern, "
-                          + "flat matte finish, layered organic forms, hand-textured abstract",
-                ColorPalette = "terracotta, clay, warm ochre, olive green, sand beige, cream and soft taupe",
+                // RESTORED and LoRA-free on JuggernautXL. Your strongest result so far (the boho botanical-
+                // abstract image) came from exactly this look, so we lean into layered organic shapes + fine
+                // line-art botanicals in full earthy colour, NOT empty texture fields. No LoRA = no attribution
+                // or licensing questions, and the base model does flat illustration well once photo is negated.
+                Aesthetic = "flat matte boho illustration, hand-painted minimalist abstract, layered translucent "
+                          + "organic shapes, fine single-line botanical drawings, gouache and watercolour "
+                          + "washes, subtle grain and paper texture, elegant negative space, mid-century modern",
+                ColorPalette = "terracotta, burnt sienna, clay, warm ochre, sage green, olive, sand beige, cream",
                 Subjects = new[] {
-                    "an abstract composition of overlapping arches and soft circles",
-                    "a simplified stacked-band mountain range reduced to flat shapes",
-                    "a minimalist rising sun over a horizon rendered as concentric arcs",
-                    "abstract botanical forms, simplified leaves and stems as flat cut-paper shapes",
-                    "an abstract still life of two vases and a bowl as bold silhouettes",
-                    "flowing torn-paper collage ribbons and gently curved organic blocks",
-                    "a soft abstract landscape of rolling hills and a single round sun"
+                    "overlapping translucent circles behind a few tall single-line botanical stems and leaves",
+                    "large sage and terracotta arch shapes with delicate line-art grasses in the foreground",
+                    "simplified abstract leaves and seed pods on thin arcing stems with scattered dots",
+                    "three or four floating pebble shapes linked by fine hand-drawn lines",
+                    "an abstract sun disc above soft layered hills with a sprig of minimal foliage",
+                    "abstract flowers reduced to flat circles and single-line stems, airy composition",
+                    "a bold half-circle balanced against a thin leaf branch and wide open space",
+                    "stacked abstract landscape bands topped with one delicate botanical line drawing"
                 },
-                Upscaler = "remacri_original.safetensors",   // UltraSharp fights the grain — avoid here
-                RefineDenoise = 0.30,
-                Cfg = 5.0,
-                NegativeAdds = "photorealistic, photograph, 3d render, glossy, plastic, airbrushed, "
-                             + "hard black outlines, high contrast, harsh shadows, neon, cluttered, "
-                             + "busy, people, human face, letters",
+                Upscaler = "remacri_original.safetensors",
+                RefineDenoise = 0.32,
+                Cfg = 6.0,
+                NegativeAdds = "photograph, photorealistic, realistic, photo, dslr, 3d render, cgi, depth of "
+                             + "field, bokeh, glossy, plastic, harsh shadows, hard black outlines, ultra sharp, "
+                             + "high contrast, neon, cluttered, busy, messy, text, letters, watermark, "
+                             + "human face, people",
                 LoraName = "",          // no LoRA — runs on JuggernautXL directly
                 LoraStrength = 0.8,     // (only used if you later set a LoraName)
-                LoraTrigger = "",       // empty so no dead token gets prepended
-                TiledDenoise = 0.12,    // low, to protect the soft grainy look through the tiled pass
+                LoraTrigger = "",
+                TiledDenoise = 0.12,
             },
             new ArtTrend {
                 Name = "Abstract Pattern (Lines & Texture)",
-                // EXPERIMENTAL / PENDING TEST. Uses Abstract Pattern Style SDXL (Civitai models/346675),
-                // base model SDXL 1.0, so it loads on JuggernautXL. This LoRA was trained subject-first
-                // (its own example prompt is "AbstractPatternStyle football"), so we prompt with NO concrete
-                // subject and suppress subjects hard in NegativeAdds to push it toward pure lines/texture.
-                // If it keeps injecting faces/objects in testing, drop this trend and use the LoRA-free
-                // "Warm Earth-Tone Abstract" route instead.
-                // TODO (1): download the LoRA and make LoraName match the actual file in models/loras,
-                //           otherwise this trend's runs will fail (the do/while loop survives it, but you'll
-                //           see a red error roughly 1 run in N). Comment this trend out until the file exists.
-                // TODO (2): creator tested at Clip Skip 2; this workflow runs Clip Skip 1 (no CLIPSetLastLayer
-                //           node). If output drifts from the gallery, that mismatch is the likely cause.
-                Aesthetic = "abstract, non-representational, no subject, flowing organic lines and "
-                          + "layered texture, matte finish, soft grain",
-                ColorPalette = "warm muted earth tones, terracotta, ochre, sand, clay and cream",
+                // Keeps the AbstractPatternStyle SDXL LoRA (Civitai models/346675). The OLD version literally
+                // put "no subject" in the prompt, which is why it rendered as flat, boring texture swatches.
+                // Now we ask for a real abstract COMPOSITION with a focal point (bold gestural lines + shapes),
+                // so there is something to look at while staying non-representational. Photo negatives added.
+                // TODO: LoraName must match your downloaded file in models/loras, else this trend errors.
+                Aesthetic = "abstract expressionist composition, bold gestural brush lines beside fine delicate "
+                          + "linework, layered flat organic shapes, torn-paper collage edges, rich hand-painted "
+                          + "texture, matte, mid-century modern abstraction, strong asymmetric focal point",
+                ColorPalette = "warm muted earth tones, terracotta, ochre, sand, clay, sage and cream",
                 Subjects = new[] {
-                    "flowing organic curved lines, calligraphic ribbons, intertwining thin and thick strokes, layered linework",
-                    "a dense tactile texture field, layered plaster and dry-brush marks, cracked pigment, rough hand-textured surface",
-                    "a network of fine intersecting straight and arced lines, mid-century geometric linework, sparse open composition with negative space",
-                    "a soft marbled fluid color field, swirling blended gradients, smooth abstract washes, gentle organic transitions"
+                    "a bold sweeping calligraphic gesture crossed by clusters of fine parallel lines and a few flat circles",
+                    "layered torn-paper shapes in warm earth tones with dark linework threading between them",
+                    "thick and thin arcs, dots and hand-drawn grids arranged in off-center balance",
+                    "intersecting fine line networks over soft blocks of terracotta and sage with open negative space"
                 },
                 Upscaler = "remacri_original.safetensors",
-                RefineDenoise = 0.30,
-                Cfg = 5.0,
-                NegativeAdds = "person, people, human, man, woman, face, portrait, figure, body, eyes, "
-                             + "hands, animal, creature, recognizable object, still life, vase, bottle, "
-                             + "landscape, horizon, tree, flower, plant, building, text, letters, logo",
+                RefineDenoise = 0.32,
+                Cfg = 6.0,
+                NegativeAdds = "photograph, photorealistic, realistic, 3d render, dslr, glossy, person, people, "
+                             + "face, portrait, figure, eyes, hands, animal, recognizable object, still life, "
+                             + "vase, bottle, landscape, building, text, letters, logo, watermark",
                 LoraName = "AbstractPatternStyleXL.safetensors",  // <-- match your downloaded filename
-                LoraStrength = 0.8,                               // test 0.8 vs 1.0 (creator recommends 1)
+                LoraStrength = 0.85,                              // test 0.85 vs 1.0 (creator recommends 1)
                 LoraTrigger = "AbstractPatternStyle",
                 TiledDenoise = 0.12,
             }
@@ -142,8 +147,13 @@ namespace AspireNext.ImageGenerator
             ArtTrend selectedTrend = TrendLibrary[rand.Next(TrendLibrary.Count)];
             string selectedSubject = selectedTrend.Subjects[rand.Next(selectedTrend.Subjects.Length)];
 
+            // Front-load the aesthetic/MEDIUM so it anchors the image (the old template trailed it after
+            // the subject, letting JuggernautXL's photo prior win). This template is what actually runs
+            // whenever HF_TOKEN is unset, so it has to be strong on its own.
             string fallback =
-                $"{selectedSubject}, in {selectedTrend.Aesthetic} style, color palette of {selectedTrend.ColorPalette}.";
+                $"{selectedTrend.Aesthetic}, {selectedSubject}, "
+                + $"color palette of {selectedTrend.ColorPalette}, "
+                + "fine art wall print, rich texture, intricate detail, masterpiece";
 
             // No token configured -> skip the LLM and use the curated template (reliable + free).
             if (string.IsNullOrEmpty(HfToken))
@@ -158,11 +168,23 @@ namespace AspireNext.ImageGenerator
                 model = "meta-llama/Llama-3.1-8B-Instruct", // 8B writes far better prompts than 1B
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a professional interior design art director. Combine the provided aesthetic, subject, and color palette into one single, cohesive, premium descriptive sentence for an image AI. Do not use conversational intro/outro text." },
-                    new { role = "user", content = $"Aesthetic: {selectedTrend.Aesthetic}. Subject: {selectedSubject}. Color Scheme: {selectedTrend.ColorPalette}." }
+                    // Old system prompt told the model to write one "interior design" sentence, which produced
+                    // flat, photographic descriptions that dropped the art medium. This one keeps the medium
+                    // front and centre and asks for keyword-style prompts SDXL responds to.
+                    new { role = "system", content =
+                        "You write prompts for a Stable Diffusion XL model that makes gallery-quality WALL ART, "
+                        + "never photographs. Return ONE prompt as a comma-separated list of visual tags. Front-load "
+                        + "the artistic MEDIUM and technique from the aesthetic (e.g. 'sumi-e ink wash painting', "
+                        + "'flat matte gouache illustration') and keep every style, texture and medium word you are "
+                        + "given — never swap them for photographic terms. Then add 3-5 concrete tags for composition "
+                        + "(negative space, asymmetry, off-center focal point), brushwork or texture, and lighting "
+                        + "mood that fit the medium. Keep the given colour palette. Output only the tags — no "
+                        + "sentences, no quotes, no preamble." },
+                    new { role = "user", content =
+                        $"Aesthetic/medium: {selectedTrend.Aesthetic}. Subject: {selectedSubject}. Colour palette: {selectedTrend.ColorPalette}." }
                 },
-                max_tokens = 100,
-                temperature = 0.5
+                max_tokens = 160,
+                temperature = 0.7
             };
 
             try
