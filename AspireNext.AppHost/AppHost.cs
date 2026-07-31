@@ -4,12 +4,18 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var cache = builder.AddRedis("cache");
 
+var postgres = builder.AddPostgres("postgres")
+    .WithDataVolume();
+var catalogDb = postgres.AddDatabase("catalogdb");
+
 var acaEnv = builder.AddAzureContainerAppEnvironment("aca-env")
                     .WithAzdResourceNaming(); // Keeps naming consistent with azd
 // 1. Reference your .NET Server
 var server = builder.AddProject<Projects.AspireNext_Server>("server")
     .WithReference(cache)
     .WaitFor(cache)
+    .WithReference(catalogDb)
+    .WaitFor(catalogDb)
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((infrastructure, app) =>
