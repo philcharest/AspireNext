@@ -10,7 +10,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AspireNext.Server.Data.Migrations
 {
-    [DbContext(typeof(CatalogDbContext))]
+    [DbContext(typeof(AppDbContext))]
     [Migration("20260730033509_InitialCreate")]
     partial class InitialCreate
     {

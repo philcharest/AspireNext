@@ -10,7 +10,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AspireNext.Server.Data.Migrations
 {
-    [DbContext(typeof(CatalogDbContext))]
+    [DbContext(typeof(AppDbContext))]
     [Migration("20260731030348_AddProductImageUrlAndReThemeCatalog")]
     partial class AddProductImageUrlAndReThemeCatalog
     {

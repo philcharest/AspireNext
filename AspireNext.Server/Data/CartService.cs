@@ -5,7 +5,7 @@ using Microsoft.Extensions.Caching.Distributed;
 
 namespace AspireNext.Server.Data;
 
-public class CartService(IDistributedCache cache, CatalogDbContext db)
+public class CartService(IDistributedCache cache, AppDbContext db)
 {
     private static readonly TimeSpan CartLifetime = TimeSpan.FromDays(30);
 
@@ -50,6 +50,34 @@ public class CartService(IDistributedCache cache, CatalogDbContext db)
         lines = [.. lines.Where(l => l.ProductId != productId)];
         await SaveLinesAsync(cartId, lines);
         return await ToCartDtoAsync(lines);
+    }
+
+    public Task ClearCartAsync(string cartId) => cache.RemoveAsync(CacheKey(cartId));
+
+    /// <summary>
+    /// Folds the cart at <paramref name="fromCartId"/> into the cart at <paramref name="intoCartId"/>,
+    /// summing quantities for products present in both, then clears the source cart.
+    /// </summary>
+    public async Task<CartDto> MergeCartsAsync(string fromCartId, string intoCartId)
+    {
+        var fromLines = await LoadLinesAsync(fromCartId);
+        if (fromLines.Count == 0)
+            return await GetCartAsync(intoCartId);
+
+        var intoLines = await LoadLinesAsync(intoCartId);
+        var merged = new List<CartLine>(intoLines);
+        foreach (var line in fromLines)
+        {
+            var index = merged.FindIndex(l => l.ProductId == line.ProductId);
+            if (index >= 0)
+                merged[index] = merged[index] with { Quantity = merged[index].Quantity + line.Quantity };
+            else
+                merged.Add(line);
+        }
+
+        await SaveLinesAsync(intoCartId, merged);
+        await ClearCartAsync(fromCartId);
+        return await ToCartDtoAsync(merged);
     }
 
     private async Task<List<CartLine>> LoadLinesAsync(string cartId)

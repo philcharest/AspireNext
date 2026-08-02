@@ -5,7 +5,7 @@ namespace AspireNext.Server.Data;
 
 public static class CatalogSeeder
 {
-    public static async Task SeedAsync(CatalogDbContext db)
+    public static async Task SeedAsync(AppDbContext db)
     {
         if (await db.Products.AnyAsync())
         {

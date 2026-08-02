@@ -1,6 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { extractError } from "@/lib/api-error";
+import { useAuth } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/csrf";
 
 export type CartItem = {
     productId: number;
@@ -18,6 +21,8 @@ export type Cart = {
 
 const EMPTY_CART: Cart = { items: [], total: 0 };
 
+type CheckoutResult = { ok: true; orderId: number } | { ok: false; error: string };
+
 type CartContextValue = {
     cart: Cart;
     itemCount: number;
@@ -25,11 +30,13 @@ type CartContextValue = {
     addItem: (productId: number, quantity?: number) => Promise<void>;
     updateQuantity: (productId: number, quantity: number) => Promise<void>;
     removeItem: (productId: number) => Promise<void>;
+    checkout: () => Promise<CheckoutResult>;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+    const { user } = useAuth();
     const [cart, setCart] = useState<Cart>(EMPTY_CART);
     const [loading, setLoading] = useState(true);
 
@@ -40,8 +47,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             .finally(() => setLoading(false));
     }, []);
 
+    // Fold any anonymous-session cart items into the signed-in user's cart. Cheap no-op
+    // when there's nothing to merge (e.g. on every already-logged-in page load).
+    useEffect(() => {
+        if (!user) return;
+        apiFetch("/api/cart/merge", { method: "POST" })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((merged) => {
+                if (merged) setCart(merged);
+            });
+    }, [user]);
+
     const addItem = useCallback(async (productId: number, quantity = 1) => {
-        const res = await fetch("/api/cart/items", {
+        const res = await apiFetch("/api/cart/items", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ productId, quantity }),
@@ -50,7 +68,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const updateQuantity = useCallback(async (productId: number, quantity: number) => {
-        const res = await fetch(`/api/cart/items/${productId}`, {
+        const res = await apiFetch(`/api/cart/items/${productId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ quantity }),
@@ -59,14 +77,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const removeItem = useCallback(async (productId: number) => {
-        const res = await fetch(`/api/cart/items/${productId}`, { method: "DELETE" });
+        const res = await apiFetch(`/api/cart/items/${productId}`, { method: "DELETE" });
         if (res.ok) setCart(await res.json());
+    }, []);
+
+    const checkout = useCallback(async (): Promise<CheckoutResult> => {
+        const res = await apiFetch("/api/checkout", { method: "POST" });
+        if (!res.ok) return { ok: false, error: await extractError(res) };
+        const order = await res.json();
+        setCart(EMPTY_CART);
+        return { ok: true, orderId: order.id };
     }, []);
 
     const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
 
     return (
-        <CartContext.Provider value={{ cart, itemCount, loading, addItem, updateQuantity, removeItem }}>
+        <CartContext.Provider value={{ cart, itemCount, loading, addItem, updateQuantity, removeItem, checkout }}>
             {children}
         </CartContext.Provider>
     );

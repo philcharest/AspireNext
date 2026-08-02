@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart-context";
+import { useAuth } from "@/lib/auth-context";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -11,7 +14,24 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 export default function CartPage() {
-    const { cart, loading, updateQuantity, removeItem } = useCart();
+    const { cart, loading, updateQuantity, removeItem, checkout } = useCart();
+    const { user, loading: authLoading } = useAuth();
+    const router = useRouter();
+    const [checkingOut, setCheckingOut] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    async function handleCheckout() {
+        setCheckingOut(true);
+        setError(null);
+
+        const result = await checkout();
+        if (result.ok) {
+            router.push(`/orders/${result.orderId}`);
+        } else {
+            setError(result.error);
+            setCheckingOut(false);
+        }
+    }
 
     return (
         <main className="mx-auto max-w-3xl px-6 py-16">
@@ -85,6 +105,20 @@ export default function CartPage() {
                         <span className="text-lg font-semibold text-foreground">
                             {currencyFormatter.format(cart.total)}
                         </span>
+                    </div>
+
+                    {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+                    <div className="mt-6 flex justify-end">
+                        {!authLoading && (
+                            user ? (
+                                <Button onClick={handleCheckout} disabled={checkingOut}>
+                                    {checkingOut ? "Placing order..." : "Checkout"}
+                                </Button>
+                            ) : (
+                                <Button render={<Link href="/login" />}>Sign in to checkout</Button>
+                            )
+                        )}
                     </div>
                 </>
             )}
