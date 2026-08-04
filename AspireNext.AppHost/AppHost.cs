@@ -4,7 +4,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var cache = builder.AddRedis("cache");
 
-var postgres = builder.AddPostgres("postgres")
+var postgres = builder.AddPostgres("postgres", port: 5432)
     .WithDataVolume();
 var catalogDb = postgres.AddDatabase("catalogdb");
 

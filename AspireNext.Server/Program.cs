@@ -192,8 +192,9 @@ app.MapPost("webhooks/stripe", async (HttpRequest request, StripeService stripeS
     {
         stripeEvent = stripeService.ConstructWebhookEvent(json, request.Headers["Stripe-Signature"]!);
     }
-    catch (Stripe.StripeException)
+    catch (Stripe.StripeException ex)
     {
+        app.Logger.LogWarning(ex, "Stripe webhook signature verification failed.");
         return Results.BadRequest();
     }
 

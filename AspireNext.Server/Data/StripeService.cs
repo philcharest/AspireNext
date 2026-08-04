@@ -38,5 +38,8 @@ public class StripeService(IOptions<StripeOptions> options)
     }
 
     public Event ConstructWebhookEvent(string json, string signatureHeader) =>
-        EventUtility.ConstructEvent(json, signatureHeader, options.Value.WebhookSecret);
+        // Our account's events are on API version 2023-08-16, older than what Stripe.net 52.2.0
+        // expects by default - we only read stable scalar fields (session Id / PaymentIntentId)
+        // off the event, so a version mismatch here doesn't risk misreading what we actually use.
+        EventUtility.ConstructEvent(json, signatureHeader, options.Value.WebhookSecret, throwOnApiVersionMismatch: false);
 }
