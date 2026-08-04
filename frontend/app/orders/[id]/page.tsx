@@ -26,6 +26,9 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
     currency: "USD",
 });
 
+const PENDING_POLL_ATTEMPTS = 3;
+const PENDING_POLL_INTERVAL_MS = 1500;
+
 export default function OrderDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { user, loading: authLoading } = useAuth();
@@ -41,10 +44,29 @@ export default function OrderDetailPage() {
 
     useEffect(() => {
         if (!user) return;
-        fetch(`/api/orders/${id}`).then((res) => {
-            if (res.ok) return res.json().then(setOrder);
-            setNotFound(true);
-        });
+
+        let cancelled = false;
+
+        async function poll(attempt: number) {
+            const res = await fetch(`/api/orders/${id}`);
+            if (cancelled) return;
+            if (!res.ok) {
+                setNotFound(true);
+                return;
+            }
+
+            const data: Order = await res.json();
+            setOrder(data);
+
+            if (data.status === "PendingPayment" && attempt < PENDING_POLL_ATTEMPTS) {
+                setTimeout(() => poll(attempt + 1), PENDING_POLL_INTERVAL_MS);
+            }
+        }
+
+        poll(0);
+        return () => {
+            cancelled = true;
+        };
     }, [user, id]);
 
     if (authLoading || !user) {
@@ -73,6 +95,36 @@ export default function OrderDetailPage() {
         return (
             <main className="mx-auto max-w-2xl px-6 py-16">
                 <p className="text-muted-foreground">Loading...</p>
+            </main>
+        );
+    }
+
+    if (order.status === "PendingPayment") {
+        return (
+            <main className="mx-auto max-w-2xl px-6 py-16">
+                <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+                    Processing your payment...
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                    Order #{order.id} — this usually only takes a moment.
+                </p>
+            </main>
+        );
+    }
+
+    if (order.status === "PaymentFailed" || order.status === "Cancelled") {
+        return (
+            <main className="mx-auto max-w-2xl px-6 py-16">
+                <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+                    Payment didn&apos;t go through
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                    Order #{order.id} was not paid.{" "}
+                    <Link href="/cart" className="text-primary underline underline-offset-4">
+                        Return to your cart
+                    </Link>{" "}
+                    to try again.
+                </p>
             </main>
         );
     }

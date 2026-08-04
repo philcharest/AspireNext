@@ -20,6 +20,8 @@ builder.AddNpgsqlDbContext<AppDbContext>("catalogdb");
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.Configure<StripeOptions>(builder.Configuration.GetSection("Stripe"));
+builder.Services.AddSingleton<StripeService>();
 builder.Services.AddAuthorization();
 builder.Services.AddIdentityApiEndpoints<ApplicationUser>()
     .AddEntityFrameworkStores<AppDbContext>();
@@ -142,12 +144,22 @@ cart.MapPost("merge", async (HttpContext context, CartService cartService) =>
     .RequireAuthorization()
     .WithName("MergeCart");
 
-api.MapPost("checkout", async (HttpContext context, ClaimsPrincipal user, OrderService orderService) =>
+api.MapPost("checkout", async (HttpContext context, ClaimsPrincipal user, OrderService orderService, StripeService stripeService, IConfiguration configuration) =>
 {
     var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
     try
     {
-        return Results.Ok(await orderService.CheckoutAsync(userId, CartCookie.ResolveCartKey(context)));
+        var order = await orderService.CreatePendingOrderAsync(userId, CartCookie.ResolveCartKey(context));
+
+        var frontendBaseUrl =
+            configuration["services:frontend:http:0"] ??
+            configuration["services:frontend:https:0"] ??
+            throw new InvalidOperationException("Frontend base URL is not configured.");
+
+        var session = await stripeService.CreateCheckoutSessionAsync(order, user.FindFirstValue(ClaimTypes.Email), frontendBaseUrl);
+        await orderService.SetStripeSessionIdAsync(order.Id, session.Id);
+
+        return Results.Ok(new { checkoutUrl = session.Url });
     }
     catch (InvalidOperationException ex)
     {
@@ -170,6 +182,39 @@ api.MapGet("orders/{id:int}", async (int id, ClaimsPrincipal user, OrderService 
         : Results.NotFound())
     .RequireAuthorization()
     .WithName("GetOrderById");
+
+app.MapPost("webhooks/stripe", async (HttpRequest request, StripeService stripeService, OrderService orderService) =>
+{
+    var json = await new StreamReader(request.Body).ReadToEndAsync();
+
+    Stripe.Event stripeEvent;
+    try
+    {
+        stripeEvent = stripeService.ConstructWebhookEvent(json, request.Headers["Stripe-Signature"]!);
+    }
+    catch (Stripe.StripeException)
+    {
+        return Results.BadRequest();
+    }
+
+    if (stripeEvent.Data.Object is Stripe.Checkout.Session session)
+    {
+        switch (stripeEvent.Type)
+        {
+            case "checkout.session.completed" or "checkout.session.async_payment_succeeded":
+                if (await orderService.GetOrderByStripeSessionIdAsync(session.Id) is { Status: OrderStatus.PendingPayment } paidOrder)
+                    await orderService.MarkOrderPaidAsync(paidOrder, session.PaymentIntentId);
+                break;
+            case "checkout.session.expired" or "checkout.session.async_payment_failed":
+                if (await orderService.GetOrderByStripeSessionIdAsync(session.Id) is { Status: OrderStatus.PendingPayment } failedOrder)
+                    await orderService.MarkOrderFailedAsync(failedOrder);
+                break;
+        }
+    }
+
+    return Results.Ok();
+})
+    .WithName("StripeWebhook");
 
 app.MapDefaultEndpoints();
 

@@ -28,6 +28,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             .Property(o => o.Status)
             .HasConversion<string>();
 
+        modelBuilder.Entity<Order>()
+            .HasIndex(o => o.StripeCheckoutSessionId);
+
         modelBuilder.Entity<OrderItem>()
             .Property(i => i.Price)
             .HasPrecision(10, 2);

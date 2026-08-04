@@ -21,7 +21,7 @@ export type Cart = {
 
 const EMPTY_CART: Cart = { items: [], total: 0 };
 
-type CheckoutResult = { ok: true; orderId: number } | { ok: false; error: string };
+type CheckoutResult = { ok: true; checkoutUrl: string } | { ok: false; error: string };
 
 type CartContextValue = {
     cart: Cart;
@@ -84,9 +84,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const checkout = useCallback(async (): Promise<CheckoutResult> => {
         const res = await apiFetch("/api/checkout", { method: "POST" });
         if (!res.ok) return { ok: false, error: await extractError(res) };
-        const order = await res.json();
-        setCart(EMPTY_CART);
-        return { ok: true, orderId: order.id };
+        const { checkoutUrl } = await res.json();
+        return { ok: true, checkoutUrl };
     }, []);
 
     const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,18 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 export default function CartPage() {
+    return (
+        <Suspense>
+            <CartPageContent />
+        </Suspense>
+    );
+}
+
+function CartPageContent() {
     const { cart, loading, updateQuantity, removeItem, checkout } = useCart();
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const searchParams = useSearchParams();
+    const canceled = searchParams.get("canceled") === "true";
     const [checkingOut, setCheckingOut] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +35,7 @@ export default function CartPage() {
 
         const result = await checkout();
         if (result.ok) {
-            router.push(`/orders/${result.orderId}`);
+            window.location.href = result.checkoutUrl;
         } else {
             setError(result.error);
             setCheckingOut(false);
@@ -38,6 +47,12 @@ export default function CartPage() {
             <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
                 Your Cart
             </h1>
+
+            {canceled && (
+                <p className="mt-4 rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+                    Checkout canceled — your cart is still here.
+                </p>
+            )}
 
             {loading ? (
                 <p className="mt-8 text-muted-foreground">Loading...</p>

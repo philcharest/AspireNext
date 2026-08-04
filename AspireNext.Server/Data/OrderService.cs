@@ -5,7 +5,12 @@ namespace AspireNext.Server.Data;
 
 public class OrderService(AppDbContext db, CartService cartService)
 {
-    public async Task<OrderDto> CheckoutAsync(string userId, string cartId)
+    /// <summary>
+    /// Snapshots the cart into a new order awaiting payment. The cart is intentionally left
+    /// intact - it's only cleared once a webhook confirms the payment actually succeeded, so an
+    /// abandoned or failed checkout doesn't lose the user's cart.
+    /// </summary>
+    public async Task<Order> CreatePendingOrderAsync(string userId, string cartId)
     {
         var cart = await cartService.GetCartAsync(cartId);
         if (cart.Items.Count == 0)
@@ -26,9 +31,32 @@ public class OrderService(AppDbContext db, CartService cartService)
 
         db.Orders.Add(order);
         await db.SaveChangesAsync();
-        await cartService.ClearCartAsync(cartId);
 
-        return ToDto(order);
+        return order;
+    }
+
+    public async Task SetStripeSessionIdAsync(int orderId, string sessionId)
+    {
+        var order = await db.Orders.FindAsync(orderId) ?? throw new KeyNotFoundException($"Order {orderId} not found.");
+        order.StripeCheckoutSessionId = sessionId;
+        await db.SaveChangesAsync();
+    }
+
+    public Task<Order?> GetOrderByStripeSessionIdAsync(string sessionId) =>
+        db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.StripeCheckoutSessionId == sessionId);
+
+    public async Task MarkOrderPaidAsync(Order order, string paymentIntentId)
+    {
+        order.Status = OrderStatus.Paid;
+        order.StripePaymentIntentId = paymentIntentId;
+        await db.SaveChangesAsync();
+        await cartService.ClearCartAsync($"user:{order.UserId}");
+    }
+
+    public async Task MarkOrderFailedAsync(Order order)
+    {
+        order.Status = OrderStatus.PaymentFailed;
+        await db.SaveChangesAsync();
     }
 
     public async Task<List<OrderDto>> GetOrdersAsync(string userId)

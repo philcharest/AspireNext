@@ -8,14 +8,36 @@ var postgres = builder.AddPostgres("postgres")
     .WithDataVolume();
 var catalogDb = postgres.AddDatabase("catalogdb");
 
+var stripeSecretKey = builder.AddParameter("stripe-secret-key", secret: true);
+var stripeWebhookSecret = builder.AddParameter("stripe-webhook-secret", secret: true);
+
 var acaEnv = builder.AddAzureContainerAppEnvironment("aca-env")
                     .WithAzdResourceNaming(); // Keeps naming consistent with azd
-// 1. Reference your .NET Server
+
+// 1. Reference the Next.js Frontend using the .esproj
+// Note: "frontend" here matches the name in the Projects namespace
+// Port 80 only makes sense once deployed behind Azure Container Apps ingress - locally the
+// Next.js dev server actually listens on 3000, so pinning 80 here too made service discovery
+// (services__frontend__http__0, used to build the Stripe success/cancel URLs) resolve to the
+// wrong port for local runs.
+var isPublishingFrontend = builder.ExecutionContext.IsPublishMode;
+var frontend = builder.AddJavaScriptApp("frontend", "../frontend")
+    .WithHttpEndpoint(
+        port: isPublishingFrontend ? 80 : 3000,
+        targetPort: 3000,
+        name: "http",
+        isProxied: isPublishingFrontend) // proxying requires port != targetPort for non-container resources
+    .WithExternalHttpEndpoints();
+
+// 2. Reference your .NET Server
 var server = builder.AddProject<Projects.AspireNext_Server>("server")
     .WithReference(cache)
     .WaitFor(cache)
     .WithReference(catalogDb)
     .WaitFor(catalogDb)
+    .WithReference(frontend) // so the server can build Stripe success/cancel URLs pointing back at the frontend
+    .WithEnvironment("Stripe__SecretKey", stripeSecretKey)
+    .WithEnvironment("Stripe__WebhookSecret", stripeWebhookSecret)
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((infrastructure, app) =>
@@ -24,12 +46,7 @@ var server = builder.AddProject<Projects.AspireNext_Server>("server")
         app.Configuration.ActiveRevisionsMode = ContainerAppActiveRevisionsMode.Single; // Link to the environment resource
     });
 
-// 2. Reference the Next.js Frontend using the .esproj
-// Note: "frontend" here matches the name in the Projects namespace
-builder.AddJavaScriptApp("frontend", "../frontend")
-    .WithHttpEndpoint(port: 80, targetPort: 3000, name: "http") // Maps external 80 to internal 3000
-    .WithExternalHttpEndpoints()
-    .WithReference(server)
+frontend.WithReference(server)
     // Add this to ensure azd performs a deployment
     .PublishAsDockerFile()
     .PublishAsAzureContainerApp((infrastructure, app) =>
