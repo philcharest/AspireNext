@@ -12,16 +12,19 @@ export function SiteHeader() {
     const { user, loading, logout } = useAuth();
 
     return (
-        <header className="border-b border-border">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-                <Link href="/" className="font-heading text-lg font-semibold text-foreground">
+        <header className="border-b border-border bg-background">
+            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+                <Link href="/" className="font-heading text-lg tracking-wide text-foreground">
                     Wall Art Canvases
                 </Link>
                 <div className="flex items-center gap-6">
                     {!loading && (
                         user ? (
-                            <div className="flex items-center gap-3">
-                                <Link href="/orders" className="text-sm text-foreground">
+                            <div className="flex items-center gap-4">
+                                <Link
+                                    href="/orders"
+                                    className="text-sm text-foreground transition-colors hover:text-muted-foreground"
+                                >
                                     Orders
                                 </Link>
                                 <span className="text-sm text-muted-foreground">{user.email}</span>
@@ -30,7 +33,10 @@ export function SiteHeader() {
                                 </Button>
                             </div>
                         ) : (
-                            <Link href="/login" className="text-sm text-foreground">
+                            <Link
+                                href="/login"
+                                className="text-sm text-foreground transition-colors hover:text-muted-foreground"
+                            >
                                 Sign in
                             </Link>
                         )

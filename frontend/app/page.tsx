@@ -1,11 +1,3 @@
-import { Badge } from "@/components/ui/badge";
-import {
-    Card,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 
 type Product = {
@@ -45,13 +37,15 @@ export default async function Home() {
 
     return (
         <div className="min-h-screen bg-background">
-            <main className="mx-auto max-w-6xl px-6 py-16">
-                <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+            <main className="mx-auto max-w-6xl px-6 py-24">
+                <p className="gallery-eyebrow">The Collection</p>
+                <h1 className="mt-3 font-heading text-5xl font-medium tracking-tight text-foreground">
                     Wall Art Canvases
                 </h1>
-                <p className="mt-2 text-muted-foreground">
+                <p className="mt-4 max-w-xl text-muted-foreground">
                     Original canvas prints across Japandi, earth-tone, and abstract collections.
                 </p>
+                <div className="mt-10 border-t border-border" />
 
                 {error ? (
                     <p className="mt-8 text-destructive">
@@ -60,34 +54,34 @@ export default async function Home() {
                 ) : products.length === 0 ? (
                     <p className="mt-8 text-muted-foreground">No products yet.</p>
                 ) : (
-                    <ul className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <ul className="mt-16 grid grid-cols-1 gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
                         {products.map((product) => (
                             <li key={product.id}>
-                                <Card className="h-full">
-                                    {product.imageUrl && (
-                                        // eslint-disable-next-line @next/next/no-img-element
+                                {product.imageUrl && (
+                                    <div className="gallery-frame aspect-4/5">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             src={product.imageUrl}
                                             alt={product.name}
-                                            className="aspect-4/5 w-full object-cover"
+                                            className="size-full object-cover"
                                         />
+                                    </div>
+                                )}
+                                <div className="mt-4 space-y-1">
+                                    {product.categoryName && (
+                                        <p className="gallery-eyebrow">{product.categoryName}</p>
                                     )}
-                                    <CardHeader>
-                                        {product.categoryName && (
-                                            <Badge variant="secondary">{product.categoryName}</Badge>
-                                        )}
-                                        <CardTitle>{product.name}</CardTitle>
-                                        {product.description && (
-                                            <CardDescription>{product.description}</CardDescription>
-                                        )}
-                                    </CardHeader>
-                                    <CardFooter className="mt-auto flex-col items-stretch gap-3">
-                                        <span className="text-base font-semibold text-foreground">
-                                            {currencyFormatter.format(product.price)}
-                                        </span>
-                                        <AddToCartButton productId={product.id} />
-                                    </CardFooter>
-                                </Card>
+                                    <h2 className="font-heading text-lg text-foreground">{product.name}</h2>
+                                    {product.description && (
+                                        <p className="text-sm text-muted-foreground">{product.description}</p>
+                                    )}
+                                </div>
+                                <div className="mt-4 flex items-center justify-between gap-4">
+                                    <span className="font-heading text-base text-foreground tabular-nums">
+                                        {currencyFormatter.format(product.price)}
+                                    </span>
+                                    <AddToCartButton productId={product.id} />
+                                </div>
                             </li>
                         ))}
                     </ul>

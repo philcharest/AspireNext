@@ -101,8 +101,8 @@ export default function OrderDetailPage() {
 
     if (order.status === "PendingPayment") {
         return (
-            <main className="mx-auto max-w-2xl px-6 py-16">
-                <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+            <main className="mx-auto max-w-2xl px-6 py-24">
+                <h1 className="font-heading text-4xl font-medium tracking-tight text-foreground">
                     Processing your payment...
                 </h1>
                 <p className="mt-2 text-muted-foreground">
@@ -114,8 +114,8 @@ export default function OrderDetailPage() {
 
     if (order.status === "PaymentFailed" || order.status === "Cancelled") {
         return (
-            <main className="mx-auto max-w-2xl px-6 py-16">
-                <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+            <main className="mx-auto max-w-2xl px-6 py-24">
+                <h1 className="font-heading text-4xl font-medium tracking-tight text-foreground">
                     Payment didn&apos;t go through
                 </h1>
                 <p className="mt-2 text-muted-foreground">
@@ -130,24 +130,25 @@ export default function OrderDetailPage() {
     }
 
     return (
-        <main className="mx-auto max-w-2xl px-6 py-16">
-            <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+        <main className="mx-auto max-w-2xl px-6 py-24">
+            <p className="gallery-eyebrow">Order Confirmed</p>
+            <h1 className="mt-3 font-heading text-4xl font-medium tracking-tight text-foreground">
                 Thank you for your order!
             </h1>
             <p className="mt-2 text-muted-foreground">
                 Order #{order.id} placed on {new Date(order.createdAt).toLocaleDateString()}
             </p>
 
-            <ul className="mt-10 divide-y divide-border">
+            <ul className="mt-12 divide-y divide-border">
                 {order.items.map((item) => (
-                    <li key={item.productId} className="flex items-center justify-between py-4">
+                    <li key={item.productId} className="flex items-center justify-between py-5">
                         <div>
-                            <p className="font-medium text-foreground">{item.productName}</p>
+                            <p className="font-heading text-base text-foreground">{item.productName}</p>
                             <p className="text-sm text-muted-foreground">
                                 {currencyFormatter.format(item.price)} &times; {item.quantity}
                             </p>
                         </div>
-                        <span className="font-semibold text-foreground">
+                        <span className="font-heading text-foreground tabular-nums">
                             {currencyFormatter.format(item.lineTotal)}
                         </span>
                     </li>
@@ -155,8 +156,8 @@ export default function OrderDetailPage() {
             </ul>
 
             <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
-                <span className="text-lg font-semibold text-foreground">Total</span>
-                <span className="text-lg font-semibold text-foreground">
+                <span className="font-heading text-lg text-foreground">Total</span>
+                <span className="font-heading text-lg text-foreground tabular-nums">
                     {currencyFormatter.format(order.total)}
                 </span>
             </div>

@@ -31,41 +31,44 @@ export default function LoginPage() {
     }
 
     return (
-        <main className="mx-auto max-w-sm px-6 py-16">
-            <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+        <main className="mx-auto max-w-sm px-6 py-24">
+            <p className="gallery-eyebrow text-center">Welcome Back</p>
+            <h1 className="mt-3 text-center font-heading text-3xl font-medium tracking-tight text-foreground">
                 Sign in
             </h1>
 
-            <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
-                </div>
-                <div className="flex flex-col gap-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                    />
-                </div>
+            <div className="mt-8 rounded-2xl border border-border bg-card p-8 shadow-sm">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                            id="password"
+                            type="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
 
-                {error && <p className="text-sm text-destructive">{error}</p>}
+                    {error && <p className="text-sm text-destructive">{error}</p>}
 
-                <Button type="submit" disabled={submitting} className="mt-2">
-                    {submitting ? "Signing in..." : "Sign in"}
-                </Button>
-            </form>
+                    <Button type="submit" disabled={submitting} size="lg" className="mt-2">
+                        {submitting ? "Signing in..." : "Sign in"}
+                    </Button>
+                </form>
+            </div>
 
-            <p className="mt-6 text-sm text-muted-foreground">
+            <p className="mt-6 text-center text-sm text-muted-foreground">
                 Don&apos;t have an account?{" "}
                 <Link href="/register" className="text-primary underline underline-offset-4">
                     Register

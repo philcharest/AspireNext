@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart-context";
 
@@ -16,8 +17,14 @@ export function AddToCartButton({ productId }: { productId: number }) {
     }
 
     return (
-        <Button onClick={handleClick} disabled={status === "adding"} className="w-full">
-            {status === "added" ? "Added" : "Add to Cart"}
+        <Button onClick={handleClick} disabled={status === "adding"} size="lg">
+            {status === "added" ? (
+                <>
+                    <Check /> Added
+                </>
+            ) : (
+                "Add to Cart"
+            )}
         </Button>
     );
 }
