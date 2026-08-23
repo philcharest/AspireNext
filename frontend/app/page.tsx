@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 
 type Product = {
@@ -57,25 +58,27 @@ export default async function Home() {
                     <ul className="mt-16 grid grid-cols-1 gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
                         {products.map((product) => (
                             <li key={product.id}>
-                                {product.imageUrl && (
-                                    <div className="gallery-frame aspect-4/5">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={product.imageUrl}
-                                            alt={product.name}
-                                            className="size-full object-cover"
-                                        />
+                                <Link href={`/product/${product.id}`} className="block">
+                                    {product.imageUrl && (
+                                        <div className="gallery-frame aspect-4/5">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={product.imageUrl}
+                                                alt={product.name}
+                                                className="size-full object-cover"
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="mt-4 space-y-1">
+                                        {product.categoryName && (
+                                            <p className="gallery-eyebrow">{product.categoryName}</p>
+                                        )}
+                                        <h2 className="font-heading text-lg text-foreground">{product.name}</h2>
+                                        {product.description && (
+                                            <p className="text-sm text-muted-foreground">{product.description}</p>
+                                        )}
                                     </div>
-                                )}
-                                <div className="mt-4 space-y-1">
-                                    {product.categoryName && (
-                                        <p className="gallery-eyebrow">{product.categoryName}</p>
-                                    )}
-                                    <h2 className="font-heading text-lg text-foreground">{product.name}</h2>
-                                    {product.description && (
-                                        <p className="text-sm text-muted-foreground">{product.description}</p>
-                                    )}
-                                </div>
+                                </Link>
                                 <div className="mt-4 flex items-center justify-between gap-4">
                                     <span className="font-heading text-base text-foreground tabular-nums">
                                         {currencyFormatter.format(product.price)}

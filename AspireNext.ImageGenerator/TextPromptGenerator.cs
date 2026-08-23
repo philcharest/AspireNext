@@ -71,9 +71,9 @@ namespace AspireNext.ImageGenerator
                 NegativeAdds = "photograph, photorealistic, realistic, photo, dslr, 3d render, cgi, octane, "
                              + "depth of field, bokeh, sharp focus, glossy, plastic, hyperrealistic, high "
                              + "contrast, neon, cluttered, busy, oversaturated, kanji, hanzi, hanko, red seal "
-                             + "stamp, chop mark, chinese characters, artist signature",
+                             + "stamp, chop mark, chinese characters, artist signature, seal, stamp, square, red square",
                 LoraName = "ink-style_A3.1_XL.safetensors",
-                LoraStrength = 0.9,
+                LoraStrength = 0.8,
                 LoraTrigger = "ink-style, ink_wash_painting",
                 TiledDenoise = 0.10,
             },
@@ -136,6 +136,47 @@ namespace AspireNext.ImageGenerator
                 LoraStrength = 0.85,                              // test 0.85 vs 1.0 (creator recommends 1)
                 LoraTrigger = "AbstractPatternStyle",
                 TiledDenoise = 0.12,
+            },
+            new ArtTrend {
+                Name = "Vibrant Palette Knife",
+                // Eldritch Palette Knife Painting — SDXL 1.0 LoRA (Civitai models/336656). Commercially clean:
+                // trained on the palette-knife TECHNIQUE, not a named artist, so no estate overhang. This is the
+                // safe way to get the vivid, high-colour Afremov-style rainy-street / bold-subject look.
+                // TRIGGER: "palette knife painting" is set as LoraTrigger (Program.cs prepends it to the very
+                // front of the prompt) AND repeated at the start of the Aesthetic, so the LoRA fires reliably
+                // no matter whether the prompt came from the fallback template or the LLM.
+                // Creator notes: Clip Skip 1 (already what this workflow runs — no CLIPSetLastLayer needed) and
+                // strength 1.0; it works down to ~0.5, so 0.9 here is a strong-but-controlled default.
+                // TODO: set LoraName to match the file you saved into models/loras.
+                Aesthetic = "palette knife painting, heavy impasto oil painting, thick textured knife strokes, "
+                          + "bold expressive brushwork, vivid impressionistic colour, luminous light "
+                          + "reflections, rich saturated pigment, gallery oil on canvas, hand-painted",
+                ColorPalette = "vivid saturated jewel tones, electric blue, violet, magenta, emerald, gold and "
+                             + "warm orange, bold complementary contrasts",
+                Subjects = new[] {
+                    "a rainy city street at night, glowing lamplight reflected on wet cobblestones, figures with umbrellas",
+                    "an autumn park path lined with trees blazing in red and gold",
+                    "a lone tree on a hill beneath a swirling sunset sky",
+                    "a Venetian canal with gondolas at dusk, shimmering coloured reflections",
+                    "a powerful bull mid-stride rendered in bold expressive colour",
+                    "a horse galloping through tall grass, energetic knife strokes",
+                    "a Parisian cafe street after rain, warm light pooling on the pavement",
+                    "a field of wildflowers under a dramatic multicoloured sky",
+                    "a small sailboat on a glittering sea at sunset",
+                    "a couple walking arm in arm under one umbrella down a tree-lined avenue"
+                },
+                // Preserve the thick knife texture: gentle upscaler (UltraSharp crunches the paint ridges),
+                // a touch more refine to sharpen strokes, low tiled denoise so the upscale doesn't smooth paint.
+                Upscaler = "remacri_original.safetensors",
+                RefineDenoise = 0.35,
+                Cfg = 6.0,
+                NegativeAdds = "photograph, photorealistic, realistic, photo, dslr, 3d render, cgi, smooth, "
+                             + "flat shading, airbrushed, digital art, plastic, blurry, low contrast, dull, "
+                             + "washed out, watermark, text, signature",
+                LoraName = "EldritchPaletteKnife.safetensors",  // <-- match your downloaded filename
+                LoraStrength = 0.9,                                  // creator rec 1.0; works down to ~0.5
+                LoraTrigger = "palette knife painting",
+                TiledDenoise = 0.15,
             }
         };
 

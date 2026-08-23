@@ -50,7 +50,15 @@ export default function LoginPage() {
                         />
                     </div>
                     <div className="flex flex-col gap-2">
-                        <Label htmlFor="password">Password</Label>
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="password">Password</Label>
+                            <Link
+                                href="/forgot-password"
+                                className="text-xs text-muted-foreground underline underline-offset-4"
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
                         <Input
                             id="password"
                             type="password"
@@ -72,6 +80,13 @@ export default function LoginPage() {
                 Don&apos;t have an account?{" "}
                 <Link href="/register" className="text-primary underline underline-offset-4">
                     Register
+                </Link>
+                .
+            </p>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+                Didn&apos;t get a confirmation email?{" "}
+                <Link href="/resend-confirmation" className="text-primary underline underline-offset-4">
+                    Resend it
                 </Link>
                 .
             </p>
