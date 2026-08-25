@@ -6,6 +6,7 @@ import { apiFetch, refreshCsrfToken } from "@/lib/csrf";
 
 export type User = {
     email: string;
+    isAdmin: boolean;
 };
 
 type AuthResult = { ok: true } | { ok: false; error: string };

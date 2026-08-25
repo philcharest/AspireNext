@@ -67,7 +67,8 @@ public class OrderService(AppDbContext db, CartService cartService)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
-        return [.. orders.Select(ToDto)];
+        var returnsByOrderId = await LoadReturnsByOrderIdAsync([.. orders.Select(o => o.Id)]);
+        return [.. orders.Select(o => ToDto(o, returnsByOrderId.GetValueOrDefault(o.Id, [])))];
     }
 
     public async Task<OrderDto?> GetOrderAsync(string userId, int orderId)
@@ -76,12 +77,47 @@ public class OrderService(AppDbContext db, CartService cartService)
             .Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.UserId == userId);
 
-        return order is null ? null : ToDto(order);
+        if (order is null)
+            return null;
+
+        var returnsByOrderId = await LoadReturnsByOrderIdAsync([order.Id]);
+        return ToDto(order, returnsByOrderId.GetValueOrDefault(order.Id, []));
     }
 
-    private static OrderDto ToDto(Order order) => new(
+    public async Task<List<AdminOrderDto>> GetAllOrdersAsync()
+    {
+        var orders = await db.Orders
+            .Include(o => o.Items)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+
+        var userIds = orders.Select(o => o.UserId).Distinct().ToList();
+        var emails = await db.Users
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.Email ?? "");
+
+        return [.. orders.Select(o => new AdminOrderDto(
+            o.Id,
+            o.CreatedAt,
+            o.Status,
+            o.Items.Sum(i => i.Price * i.Quantity),
+            emails.GetValueOrDefault(o.UserId, "")))];
+    }
+
+    private async Task<Dictionary<int, List<Return>>> LoadReturnsByOrderIdAsync(List<int> orderIds)
+    {
+        var returns = await db.Returns
+            .Where(r => orderIds.Contains(r.OrderId))
+            .Include(r => r.Items)
+            .ToListAsync();
+
+        return returns.GroupBy(r => r.OrderId).ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private static OrderDto ToDto(Order order, List<Return> returns) => new(
         order.Id,
         order.CreatedAt,
         order.Status,
-        [.. order.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.Price, i.Quantity))]);
+        [.. order.Items.Select(i => new OrderItemDto(i.Id, i.ProductId, i.ProductName, i.Price, i.Quantity))],
+        [.. returns.Select(r => ReturnDto.FromEntity(r, order.Items))]);
 }

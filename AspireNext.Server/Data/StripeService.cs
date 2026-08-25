@@ -8,6 +8,7 @@ namespace AspireNext.Server.Data;
 public class StripeService(IOptions<StripeOptions> options)
 {
     private readonly SessionService _sessionService = new(new StripeClient(options.Value.SecretKey));
+    private readonly RefundService _refundService = new(new StripeClient(options.Value.SecretKey));
 
     public Task<Session> CreateCheckoutSessionAsync(Order order, string? customerEmail, string frontendBaseUrl)
     {
@@ -36,6 +37,14 @@ public class StripeService(IOptions<StripeOptions> options)
 
         return _sessionService.CreateAsync(sessionOptions);
     }
+
+    public Task<Refund> RefundAsync(string paymentIntentId, decimal amount) =>
+        _refundService.CreateAsync(new RefundCreateOptions
+        {
+            PaymentIntent = paymentIntentId,
+            Amount = (long)(amount * 100),
+            Reason = "requested_by_customer",
+        });
 
     public Event ConstructWebhookEvent(string json, string signatureHeader) =>
         // Our account's events are on API version 2023-08-16, older than what Stripe.net 52.2.0

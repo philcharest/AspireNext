@@ -27,6 +27,14 @@ export function SiteHeader() {
                                 >
                                     Orders
                                 </Link>
+                                {user.isAdmin && (
+                                    <Link
+                                        href="/admin/orders"
+                                        className="text-sm text-foreground transition-colors hover:text-muted-foreground"
+                                    >
+                                        Admin
+                                    </Link>
+                                )}
                                 <span className="text-sm text-muted-foreground">{user.email}</span>
                                 <Button variant="outline" size="sm" onClick={() => logout()}>
                                     Sign out

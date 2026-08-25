@@ -20,12 +20,14 @@ builder.AddNpgsqlDbContext<AppDbContext>("catalogdb");
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<ReturnService>();
 builder.Services.Configure<StripeOptions>(builder.Configuration.GetSection("Stripe"));
 builder.Services.AddSingleton<StripeService>();
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.AddTransient<IEmailSender<ApplicationUser>, SmtpEmailSender>();
 builder.Services.AddAuthorization();
 builder.Services.AddIdentityApiEndpoints<ApplicationUser>()
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>();
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
 
@@ -48,6 +50,10 @@ if (app.Environment.IsDevelopment())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
     await CatalogSeeder.SeedAsync(db);
+
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    await AdminSeeder.SeedAsync(userManager, roleManager);
 }
 
 app.UseAuthentication();
@@ -96,7 +102,7 @@ api.MapIdentityApi<ApplicationUser>();
 
 api.MapGet("account/me", (ClaimsPrincipal user) =>
     user.Identity?.IsAuthenticated == true
-        ? Results.Ok(new { email = user.FindFirstValue(ClaimTypes.Email) })
+        ? Results.Ok(new { email = user.FindFirstValue(ClaimTypes.Email), isAdmin = user.IsInRole("Admin") })
         : Results.Unauthorized())
     .WithName("GetCurrentUser");
 
@@ -184,6 +190,71 @@ api.MapGet("orders/{id:int}", async (int id, ClaimsPrincipal user, OrderService 
         : Results.NotFound())
     .RequireAuthorization()
     .WithName("GetOrderById");
+
+api.MapPost("orders/{id:int}/returns", async (int id, ClaimsPrincipal user, CreateReturnRequest request, ReturnService returnService) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    try
+    {
+        return Results.Ok(await returnService.CreateReturnRequestAsync(userId, id, request));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+})
+    .RequireAuthorization()
+    .AddEndpointFilter(AntiforgeryFilter.ValidateAsync)
+    .WithName("CreateReturnRequest");
+
+var admin = api.MapGroup("/admin").RequireAuthorization(policy => policy.RequireRole("Admin"));
+admin.AddEndpointFilter(AntiforgeryFilter.ValidateAsync);
+
+admin.MapGet("orders", (OrderService orderService) =>
+    orderService.GetAllOrdersAsync())
+    .WithName("GetAllOrders");
+
+admin.MapGet("returns", (ReturnService returnService) =>
+    returnService.GetAllReturnsAsync())
+    .WithName("GetAllReturns");
+
+admin.MapPost("returns/{id:int}/approve", async (int id, ReturnService returnService) =>
+{
+    try
+    {
+        return Results.Ok(await returnService.ApproveReturnAsync(id));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+})
+    .WithName("ApproveReturn");
+
+admin.MapPost("returns/{id:int}/reject", async (int id, RejectReturnRequest request, ReturnService returnService) =>
+{
+    try
+    {
+        return Results.Ok(await returnService.RejectReturnAsync(id, request.Note));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+})
+    .WithName("RejectReturn");
 
 app.MapPost("webhooks/stripe", async (HttpRequest request, StripeService stripeService, OrderService orderService) =>
 {

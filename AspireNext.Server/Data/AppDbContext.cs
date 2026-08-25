@@ -10,6 +10,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Return> Returns => Set<Return>();
+    public DbSet<ReturnItem> ReturnItems => Set<ReturnItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +35,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
 
         modelBuilder.Entity<OrderItem>()
             .Property(i => i.Price)
+            .HasPrecision(10, 2);
+
+        modelBuilder.Entity<Return>()
+            .HasMany(r => r.Items)
+            .WithOne()
+            .HasForeignKey(i => i.ReturnId);
+
+        modelBuilder.Entity<Return>()
+            .Property(r => r.Status)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<Return>()
+            .Property(r => r.RefundAmount)
             .HasPrecision(10, 2);
     }
 }
