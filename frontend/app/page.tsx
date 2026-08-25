@@ -15,7 +15,11 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
     currency: "USD",
 });
 
-export default async function Home() {
+export default async function Home({
+    searchParams,
+}: {
+    searchParams: Promise<{ collection?: string }>;
+}) {
     // Aspire injects the URL based on the name "server" used in AppHost.cs
     const serverUrl =
         process.env["services__server__http__0"] ||
@@ -36,6 +40,12 @@ export default async function Home() {
         error = e instanceof Error ? e.message : String(e);
     }
 
+    const { collection: selectedCollection } = await searchParams;
+    const collections = [...new Set(products.map((p) => p.categoryName).filter((c) => c !== null))];
+    const visibleProducts = selectedCollection
+        ? products.filter((p) => p.categoryName === selectedCollection)
+        : products;
+
     return (
         <div className="min-h-screen bg-background">
             <main className="mx-auto max-w-6xl px-6 py-24">
@@ -46,17 +56,45 @@ export default async function Home() {
                 <p className="mt-4 max-w-xl text-muted-foreground">
                     Original canvas prints across Japandi, earth-tone, and abstract collections.
                 </p>
+                {collections.length > 0 && (
+                    <div className="mt-8 flex flex-wrap gap-2">
+                        <Link
+                            href="/"
+                            className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                                !selectedCollection
+                                    ? "border-foreground bg-foreground text-background"
+                                    : "border-border text-foreground hover:bg-muted"
+                            }`}
+                        >
+                            All
+                        </Link>
+                        {collections.map((collection) => (
+                            <Link
+                                key={collection}
+                                href={`/?collection=${encodeURIComponent(collection!)}`}
+                                className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                                    selectedCollection === collection
+                                        ? "border-foreground bg-foreground text-background"
+                                        : "border-border text-foreground hover:bg-muted"
+                                }`}
+                            >
+                                {collection}
+                            </Link>
+                        ))}
+                    </div>
+                )}
+
                 <div className="mt-10 border-t border-border" />
 
                 {error ? (
                     <p className="mt-8 text-destructive">
                         Could not load products: {error}
                     </p>
-                ) : products.length === 0 ? (
-                    <p className="mt-8 text-muted-foreground">No products yet.</p>
+                ) : visibleProducts.length === 0 ? (
+                    <p className="mt-8 text-muted-foreground">No products in this collection yet.</p>
                 ) : (
                     <ul className="mt-16 grid grid-cols-1 gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
-                        {products.map((product) => (
+                        {visibleProducts.map((product) => (
                             <li key={product.id}>
                                 <Link href={`/product/${product.id}`} className="block">
                                     {product.imageUrl && (
