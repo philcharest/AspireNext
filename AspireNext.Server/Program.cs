@@ -1,9 +1,6 @@
-using System.Security.Claims;
 using System.Text.Json.Serialization;
-using AspireNext.Server;
 using AspireNext.Server.Data;
 using AspireNext.Server.Models;
-using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,6 +31,12 @@ builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// Controllers get their own JSON options separate from the minimal-API ones above (still needed
+// for MapIdentityApi's responses) - keep enum-as-string serialization consistent across both.
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -61,242 +64,15 @@ app.UseAuthorization();
 
 app.UseOutputCache();
 
-string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
+// MapIdentityApi<ApplicationUser>() has no official Controller equivalent - it's Microsoft's own
+// built-in register/login/forgotPassword/etc. endpoint group, kept as the one minimal-API route
+// registration in this file rather than hand-reimplementing Identity's own logic.
+app.MapGroup("/api").MapIdentityApi<ApplicationUser>();
 
-var api = app.MapGroup("/api");
-
-api.MapGet("antiforgery/token", (HttpContext context, IAntiforgery antiforgery) =>
-{
-    var tokens = antiforgery.GetAndStoreTokens(context);
-    return Results.Ok(new { token = tokens.RequestToken });
-})
-    .WithName("GetAntiforgeryToken");
-
-api.MapGet("weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.CacheOutput(p => p.Expire(TimeSpan.FromSeconds(5)))
-.WithName("GetWeatherForecast");
-
-api.MapGet("products", async (AppDbContext db) =>
-    await db.Products.Select(ProductDto.Projection).ToListAsync())
-    .WithName("GetProducts");
-
-api.MapGet("products/{id:int}", async (int id, AppDbContext db) =>
-    await db.Products.Where(p => p.Id == id).Select(ProductDto.Projection).FirstOrDefaultAsync()
-        is ProductDto product
-        ? Results.Ok(product)
-        : Results.NotFound())
-    .WithName("GetProductById");
-
-api.MapIdentityApi<ApplicationUser>();
-
-api.MapGet("account/me", (ClaimsPrincipal user) =>
-    user.Identity?.IsAuthenticated == true
-        ? Results.Ok(new { email = user.FindFirstValue(ClaimTypes.Email), isAdmin = user.IsInRole("Admin") })
-        : Results.Unauthorized())
-    .WithName("GetCurrentUser");
-
-api.MapPost("account/logout", async (SignInManager<ApplicationUser> signInManager) =>
-{
-    await signInManager.SignOutAsync();
-    return Results.Ok();
-})
-    .RequireAuthorization()
-    .AddEndpointFilter(AntiforgeryFilter.ValidateAsync)
-    .WithName("Logout");
-
-var cart = api.MapGroup("/cart");
-cart.AddEndpointFilter(AntiforgeryFilter.ValidateAsync);
-
-cart.MapGet("", (HttpContext context, CartService cartService) =>
-    cartService.GetCartAsync(CartCookie.ResolveCartKey(context)))
-    .WithName("GetCart");
-
-cart.MapPost("items", async (HttpContext context, AddCartItemRequest request, CartService cartService) =>
-{
-    try
-    {
-        return Results.Ok(await cartService.AddItemAsync(CartCookie.ResolveCartKey(context), request.ProductId, request.Quantity));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound();
-    }
-    catch (ArgumentOutOfRangeException ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-})
-    .WithName("AddCartItem");
-
-cart.MapPut("items/{productId:int}", async (int productId, HttpContext context, UpdateCartItemRequest request, CartService cartService) =>
-    Results.Ok(await cartService.UpdateItemAsync(CartCookie.ResolveCartKey(context), productId, request.Quantity)))
-    .WithName("UpdateCartItem");
-
-cart.MapDelete("items/{productId:int}", async (int productId, HttpContext context, CartService cartService) =>
-    Results.Ok(await cartService.RemoveItemAsync(CartCookie.ResolveCartKey(context), productId)))
-    .WithName("RemoveCartItem");
-
-cart.MapPost("merge", async (HttpContext context, CartService cartService) =>
-    Results.Ok(await cartService.MergeCartsAsync(CartCookie.GetAnonymousCartKey(context), CartCookie.ResolveCartKey(context))))
-    .RequireAuthorization()
-    .WithName("MergeCart");
-
-api.MapPost("checkout", async (HttpContext context, ClaimsPrincipal user, OrderService orderService, StripeService stripeService, IConfiguration configuration) =>
-{
-    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
-    try
-    {
-        var order = await orderService.CreatePendingOrderAsync(userId, CartCookie.ResolveCartKey(context));
-
-        var frontendBaseUrl =
-            configuration["services:frontend:http:0"] ??
-            configuration["services:frontend:https:0"] ??
-            throw new InvalidOperationException("Frontend base URL is not configured.");
-
-        var session = await stripeService.CreateCheckoutSessionAsync(order, user.FindFirstValue(ClaimTypes.Email), frontendBaseUrl);
-        await orderService.SetStripeSessionIdAsync(order.Id, session.Id);
-
-        return Results.Ok(new { checkoutUrl = session.Url });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-})
-    .RequireAuthorization()
-    .AddEndpointFilter(AntiforgeryFilter.ValidateAsync)
-    .WithName("Checkout");
-
-api.MapGet("orders", (ClaimsPrincipal user, OrderService orderService) =>
-    orderService.GetOrdersAsync(user.FindFirstValue(ClaimTypes.NameIdentifier)!))
-    .RequireAuthorization()
-    .WithName("GetOrders");
-
-api.MapGet("orders/{id:int}", async (int id, ClaimsPrincipal user, OrderService orderService) =>
-    await orderService.GetOrderAsync(user.FindFirstValue(ClaimTypes.NameIdentifier)!, id)
-        is OrderDto order
-        ? Results.Ok(order)
-        : Results.NotFound())
-    .RequireAuthorization()
-    .WithName("GetOrderById");
-
-api.MapPost("orders/{id:int}/returns", async (int id, ClaimsPrincipal user, CreateReturnRequest request, ReturnService returnService) =>
-{
-    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
-    try
-    {
-        return Results.Ok(await returnService.CreateReturnRequestAsync(userId, id, request));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound();
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-})
-    .RequireAuthorization()
-    .AddEndpointFilter(AntiforgeryFilter.ValidateAsync)
-    .WithName("CreateReturnRequest");
-
-var admin = api.MapGroup("/admin").RequireAuthorization(policy => policy.RequireRole("Admin"));
-admin.AddEndpointFilter(AntiforgeryFilter.ValidateAsync);
-
-admin.MapGet("orders", (OrderService orderService) =>
-    orderService.GetAllOrdersAsync())
-    .WithName("GetAllOrders");
-
-admin.MapGet("returns", (ReturnService returnService) =>
-    returnService.GetAllReturnsAsync())
-    .WithName("GetAllReturns");
-
-admin.MapPost("returns/{id:int}/approve", async (int id, ReturnService returnService) =>
-{
-    try
-    {
-        return Results.Ok(await returnService.ApproveReturnAsync(id));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound();
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-})
-    .WithName("ApproveReturn");
-
-admin.MapPost("returns/{id:int}/reject", async (int id, RejectReturnRequest request, ReturnService returnService) =>
-{
-    try
-    {
-        return Results.Ok(await returnService.RejectReturnAsync(id, request.Note));
-    }
-    catch (KeyNotFoundException)
-    {
-        return Results.NotFound();
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-})
-    .WithName("RejectReturn");
-
-app.MapPost("webhooks/stripe", async (HttpRequest request, StripeService stripeService, OrderService orderService) =>
-{
-    var json = await new StreamReader(request.Body).ReadToEndAsync();
-
-    Stripe.Event stripeEvent;
-    try
-    {
-        stripeEvent = stripeService.ConstructWebhookEvent(json, request.Headers["Stripe-Signature"]!);
-    }
-    catch (Stripe.StripeException ex)
-    {
-        app.Logger.LogWarning(ex, "Stripe webhook signature verification failed.");
-        return Results.BadRequest();
-    }
-
-    if (stripeEvent.Data.Object is Stripe.Checkout.Session session)
-    {
-        switch (stripeEvent.Type)
-        {
-            case "checkout.session.completed" or "checkout.session.async_payment_succeeded":
-                if (await orderService.GetOrderByStripeSessionIdAsync(session.Id) is { Status: OrderStatus.PendingPayment } paidOrder)
-                    await orderService.MarkOrderPaidAsync(paidOrder, session.PaymentIntentId);
-                break;
-            case "checkout.session.expired" or "checkout.session.async_payment_failed":
-                if (await orderService.GetOrderByStripeSessionIdAsync(session.Id) is { Status: OrderStatus.PendingPayment } failedOrder)
-                    await orderService.MarkOrderFailedAsync(failedOrder);
-                break;
-        }
-    }
-
-    return Results.Ok();
-})
-    .WithName("StripeWebhook");
+app.MapControllers();
 
 app.MapDefaultEndpoints();
 
 app.UseFileServer();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
