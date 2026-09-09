@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { CartProvider } from "@/lib/cart-context";
 import { AuthProvider } from "@/lib/auth-context";
+import { ConsentProvider } from "@/lib/consent-context";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
+import { AnalyticsLoader } from "@/components/analytics-loader";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,12 +38,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} flex min-h-screen flex-col antialiased`}
       >
         <AuthProvider>
           <CartProvider>
-            <SiteHeader />
-            {children}
+            <ConsentProvider>
+              <SiteHeader />
+              <div className="flex-1">{children}</div>
+              <SiteFooter />
+              <CookieConsentBanner />
+              <AnalyticsLoader />
+            </ConsentProvider>
           </CartProvider>
         </AuthProvider>
       </body>
