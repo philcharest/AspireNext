@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { ProductPrice } from "@/components/product-price";
 
 type Product = {
     id: number;
@@ -7,13 +8,9 @@ type Product = {
     description: string | null;
     imageUrl: string | null;
     price: number;
+    priceUsd: number | null;
     categoryName: string | null;
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
 
 export default async function Home({
     searchParams,
@@ -118,9 +115,11 @@ export default async function Home({
                                     </div>
                                 </Link>
                                 <div className="mt-4 flex items-center justify-between gap-4">
-                                    <span className="font-heading text-base text-foreground tabular-nums">
-                                        {currencyFormatter.format(product.price)}
-                                    </span>
+                                    <ProductPrice
+                                        price={product.price}
+                                        priceUsd={product.priceUsd}
+                                        className="font-heading text-base text-foreground tabular-nums"
+                                    />
                                     <AddToCartButton productId={product.id} />
                                 </div>
                             </li>

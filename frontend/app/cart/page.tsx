@@ -7,11 +7,7 @@ import { Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
+import { formatPrice } from "@/lib/currency";
 
 export default function CartPage() {
     return (
@@ -83,7 +79,7 @@ function CartPageContent() {
                                 <div className="flex-1">
                                     <p className="font-heading text-base text-foreground">{item.name}</p>
                                     <p className="text-sm text-muted-foreground">
-                                        {currencyFormatter.format(item.price)} each
+                                        {formatPrice(item.price, cart.currency)} each
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -104,7 +100,7 @@ function CartPageContent() {
                                     </Button>
                                 </div>
                                 <span className="w-20 text-right font-heading text-foreground tabular-nums">
-                                    {currencyFormatter.format(item.lineTotal)}
+                                    {formatPrice(item.lineTotal, cart.currency)}
                                 </span>
                                 <Button
                                     variant="ghost"
@@ -121,7 +117,7 @@ function CartPageContent() {
                     <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
                         <span className="font-heading text-lg text-foreground">Total</span>
                         <span className="font-heading text-lg text-foreground tabular-nums">
-                            {currencyFormatter.format(cart.total)}
+                            {formatPrice(cart.total, cart.currency)}
                         </span>
                     </div>
 

@@ -8,13 +8,19 @@ using System.Threading.Tasks;
 
 namespace AspireNext.ImageGenerator
 {
+    // Pairs a subject's text with the canvas orientation its composition actually suits (a wide
+    // horizon reads better as Landscape, a tall branch as Portrait, a centered motif as Square) -
+    // so the generation resolution and the final print shape follow from the subject itself
+    // instead of every image being forced into the same fixed portrait frame.
+    public record PromptSubject(string Text, CanvasOrientation Orientation);
+
     // A trend package now locks the aesthetic, subject, palette AND the render recipe together,
     // so each art trend renders with settings suited to its texture goals.
     public class ArtTrend
     {
         public string Name { get; set; } = string.Empty;
         public string Aesthetic { get; set; } = string.Empty;
-        public string[] Subjects { get; set; } = Array.Empty<string>();
+        public PromptSubject[] Subjects { get; set; } = Array.Empty<PromptSubject>();
         public string ColorPalette { get; set; } = string.Empty;
 
         // ---- Per-trend render recipe (injected into the ComfyUI workflow) ----
@@ -30,8 +36,9 @@ namespace AspireNext.ImageGenerator
         // 0.12 for the soft earth-tone/abstract trends to protect grain and texture).
     }
 
-    // Carries BOTH the final prompt and the trend recipe back to the caller.
-    public record GenerationRequest(string Prompt, ArtTrend Trend);
+    // Carries the final prompt, the trend recipe, and the canvas format (orientation + physical
+    // size + matching native resolution) chosen for this subject back to the caller.
+    public record GenerationRequest(string Prompt, ArtTrend Trend, CanvasFormat Format);
 
     public class TextGenerator
     {
@@ -55,15 +62,15 @@ namespace AspireNext.ImageGenerator
                           + "negative space, hand-painted, matte",
                 ColorPalette = "sumi ink black and soft grey, warm beige, faded terracotta, muted sage green, aged cream paper",
                 Subjects = new[] {
-                    "a single gnarled plum branch with a few pink cherry blossoms sweeping in from one corner, asymmetric",
-                    "one lone windswept pine on a misty ridge with vast open sky",
-                    "three overlapping mountain silhouettes dissolving into pale mist",
-                    "a solitary crane wading in still shallow water among sparse reeds",
-                    "a few koi drifting beneath loosely suggested ripples",
-                    "a stand of bamboo bending in the wind, dry-brush strokes on blank paper",
-                    "a small wooden boat on a glassy lake under a low pale moon",
-                    "layered fog over distant hills with a thin crescent moon, quiet and sparse",
-                    "tall wild grasses arcing from the lower corner into empty space"
+                    new PromptSubject("a single gnarled plum branch with a few pink cherry blossoms sweeping in from one corner, asymmetric", CanvasOrientation.Portrait),
+                    new PromptSubject("one lone windswept pine on a misty ridge with vast open sky", CanvasOrientation.Landscape),
+                    new PromptSubject("three overlapping mountain silhouettes dissolving into pale mist", CanvasOrientation.Landscape),
+                    new PromptSubject("a solitary crane wading in still shallow water among sparse reeds", CanvasOrientation.Portrait),
+                    new PromptSubject("a few koi drifting beneath loosely suggested ripples", CanvasOrientation.Square),
+                    new PromptSubject("a stand of bamboo bending in the wind, dry-brush strokes on blank paper", CanvasOrientation.Portrait),
+                    new PromptSubject("a small wooden boat on a glassy lake under a low pale moon", CanvasOrientation.Landscape),
+                    new PromptSubject("layered fog over distant hills with a thin crescent moon, quiet and sparse", CanvasOrientation.Landscape),
+                    new PromptSubject("tall wild grasses arcing from the lower corner into empty space", CanvasOrientation.Portrait)
                 },
                 Upscaler = "remacri_original.safetensors",
                 RefineDenoise = 0.30,
@@ -88,14 +95,14 @@ namespace AspireNext.ImageGenerator
                           + "washes, subtle grain and paper texture, elegant negative space, mid-century modern",
                 ColorPalette = "terracotta, burnt sienna, clay, warm ochre, sage green, olive, sand beige, cream",
                 Subjects = new[] {
-                    "overlapping translucent circles behind a few tall single-line botanical stems and leaves",
-                    "large sage and terracotta arch shapes with delicate line-art grasses in the foreground",
-                    "simplified abstract leaves and seed pods on thin arcing stems with scattered dots",
-                    "three or four floating pebble shapes linked by fine hand-drawn lines",
-                    "an abstract sun disc above soft layered hills with a sprig of minimal foliage",
-                    "abstract flowers reduced to flat circles and single-line stems, airy composition",
-                    "a bold half-circle balanced against a thin leaf branch and wide open space",
-                    "stacked abstract landscape bands topped with one delicate botanical line drawing"
+                    new PromptSubject("overlapping translucent circles behind a few tall single-line botanical stems and leaves", CanvasOrientation.Portrait),
+                    new PromptSubject("large sage and terracotta arch shapes with delicate line-art grasses in the foreground", CanvasOrientation.Square),
+                    new PromptSubject("simplified abstract leaves and seed pods on thin arcing stems with scattered dots", CanvasOrientation.Portrait),
+                    new PromptSubject("three or four floating pebble shapes linked by fine hand-drawn lines", CanvasOrientation.Square),
+                    new PromptSubject("an abstract sun disc above soft layered hills with a sprig of minimal foliage", CanvasOrientation.Landscape),
+                    new PromptSubject("abstract flowers reduced to flat circles and single-line stems, airy composition", CanvasOrientation.Portrait),
+                    new PromptSubject("a bold half-circle balanced against a thin leaf branch and wide open space", CanvasOrientation.Square),
+                    new PromptSubject("stacked abstract landscape bands topped with one delicate botanical line drawing", CanvasOrientation.Landscape)
                 },
                 Upscaler = "remacri_original.safetensors",
                 RefineDenoise = 0.32,
@@ -121,10 +128,10 @@ namespace AspireNext.ImageGenerator
                           + "texture, matte, mid-century modern abstraction, strong asymmetric focal point",
                 ColorPalette = "warm muted earth tones, terracotta, ochre, sand, clay, sage and cream",
                 Subjects = new[] {
-                    "a bold sweeping calligraphic gesture crossed by clusters of fine parallel lines and a few flat circles",
-                    "layered torn-paper shapes in warm earth tones with dark linework threading between them",
-                    "thick and thin arcs, dots and hand-drawn grids arranged in off-center balance",
-                    "intersecting fine line networks over soft blocks of terracotta and sage with open negative space"
+                    new PromptSubject("a bold sweeping calligraphic gesture crossed by clusters of fine parallel lines and a few flat circles", CanvasOrientation.Square),
+                    new PromptSubject("layered torn-paper shapes in warm earth tones with dark linework threading between them", CanvasOrientation.Square),
+                    new PromptSubject("thick and thin arcs, dots and hand-drawn grids arranged in off-center balance", CanvasOrientation.Square),
+                    new PromptSubject("intersecting fine line networks over soft blocks of terracotta and sage with open negative space", CanvasOrientation.Landscape)
                 },
                 Upscaler = "remacri_original.safetensors",
                 RefineDenoise = 0.32,
@@ -154,16 +161,16 @@ namespace AspireNext.ImageGenerator
                 ColorPalette = "vivid saturated jewel tones, electric blue, violet, magenta, emerald, gold and "
                              + "warm orange, bold complementary contrasts",
                 Subjects = new[] {
-                    "a rainy city street at night, glowing lamplight reflected on wet cobblestones, figures with umbrellas",
-                    "an autumn park path lined with trees blazing in red and gold",
-                    "a lone tree on a hill beneath a swirling sunset sky",
-                    "a Venetian canal with gondolas at dusk, shimmering coloured reflections",
-                    "a powerful bull mid-stride rendered in bold expressive colour",
-                    "a horse galloping through tall grass, energetic knife strokes",
-                    "a Parisian cafe street after rain, warm light pooling on the pavement",
-                    "a field of wildflowers under a dramatic multicoloured sky",
-                    "a small sailboat on a glittering sea at sunset",
-                    "a couple walking arm in arm under one umbrella down a tree-lined avenue"
+                    new PromptSubject("a rainy city street at night, glowing lamplight reflected on wet cobblestones, figures with umbrellas", CanvasOrientation.Portrait),
+                    new PromptSubject("an autumn park path lined with trees blazing in red and gold", CanvasOrientation.Portrait),
+                    new PromptSubject("a lone tree on a hill beneath a swirling sunset sky", CanvasOrientation.Landscape),
+                    new PromptSubject("a Venetian canal with gondolas at dusk, shimmering coloured reflections", CanvasOrientation.Landscape),
+                    new PromptSubject("a powerful bull mid-stride rendered in bold expressive colour", CanvasOrientation.Landscape),
+                    new PromptSubject("a horse galloping through tall grass, energetic knife strokes", CanvasOrientation.Landscape),
+                    new PromptSubject("a Parisian cafe street after rain, warm light pooling on the pavement", CanvasOrientation.Portrait),
+                    new PromptSubject("a field of wildflowers under a dramatic multicoloured sky", CanvasOrientation.Landscape),
+                    new PromptSubject("a small sailboat on a glittering sea at sunset", CanvasOrientation.Landscape),
+                    new PromptSubject("a couple walking arm in arm under one umbrella down a tree-lined avenue", CanvasOrientation.Portrait)
                 },
                 // Preserve the thick knife texture: gentle upscaler (UltraSharp crunches the paint ridges),
                 // a touch more refine to sharpen strokes, low tiled denoise so the upscale doesn't smooth paint.
@@ -184,21 +191,25 @@ namespace AspireNext.ImageGenerator
         {
             var rand = Random.Shared;
 
-            // Pick one locked trend package, then a subject that belongs to it.
+            // Pick one locked trend package, then a subject that belongs to it. The subject carries
+            // the orientation its composition actually suits, and that picks which canvas format
+            // (physical size + matching native resolution) this generation renders at - see
+            // CanvasFormats.cs.
             ArtTrend selectedTrend = TrendLibrary[rand.Next(TrendLibrary.Count)];
-            string selectedSubject = selectedTrend.Subjects[rand.Next(selectedTrend.Subjects.Length)];
+            PromptSubject selectedSubject = selectedTrend.Subjects[rand.Next(selectedTrend.Subjects.Length)];
+            CanvasFormat format = CanvasFormats.PickRandom(selectedSubject.Orientation);
 
             // Front-load the aesthetic/MEDIUM so it anchors the image (the old template trailed it after
             // the subject, letting JuggernautXL's photo prior win). This template is what actually runs
             // whenever HF_TOKEN is unset, so it has to be strong on its own.
             string fallback =
-                $"{selectedTrend.Aesthetic}, {selectedSubject}, "
+                $"{selectedTrend.Aesthetic}, {selectedSubject.Text}, "
                 + $"color palette of {selectedTrend.ColorPalette}, "
                 + "fine art wall print, rich texture, intricate detail, masterpiece";
 
             // No token configured -> skip the LLM and use the curated template (reliable + free).
             if (string.IsNullOrEmpty(HfToken))
-                return new GenerationRequest(fallback, selectedTrend);
+                return new GenerationRequest(fallback, selectedTrend, format);
 
             // OpenAI-compatible router endpoint. Verify the current path in Hugging Face's docs.
             string apiUrl = "https://router.huggingface.co/v1/chat/completions";
@@ -222,7 +233,11 @@ namespace AspireNext.ImageGenerator
                         + "mood that fit the medium. Keep the given colour palette. Output only the tags — no "
                         + "sentences, no quotes, no preamble." },
                     new { role = "user", content =
-                        $"Aesthetic/medium: {selectedTrend.Aesthetic}. Subject: {selectedSubject}. Colour palette: {selectedTrend.ColorPalette}." }
+                        $"Aesthetic/medium: {selectedTrend.Aesthetic}. Subject: {selectedSubject.Text}. Colour "
+                        + $"palette: {selectedTrend.ColorPalette}. Canvas orientation: {format.Orientation} "
+                        + $"({format.WidthCm}x{format.HeightCm}cm) - include 1-2 composition tags that suit that "
+                        + "shape (e.g. a wide horizon for landscape, a tall vertical arrangement for portrait, a "
+                        + "centered balanced focal point for square)." }
                 },
                 max_tokens = 160,
                 temperature = 0.7
@@ -235,7 +250,7 @@ namespace AspireNext.ImageGenerator
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
 
                 if (!resp.IsSuccessStatusCode)
-                    return new GenerationRequest(fallback, selectedTrend);
+                    return new GenerationRequest(fallback, selectedTrend, format);
 
                 string json = await resp.Content.ReadAsStringAsync();
                 using JsonDocument doc = JsonDocument.Parse(json);
@@ -247,11 +262,11 @@ namespace AspireNext.ImageGenerator
                     .GetProperty("content")
                     .GetString()?.Trim() ?? "";
 
-                return new GenerationRequest(string.IsNullOrEmpty(text) ? fallback : text, selectedTrend);
+                return new GenerationRequest(string.IsNullOrEmpty(text) ? fallback : text, selectedTrend, format);
             }
             catch
             {
-                return new GenerationRequest(fallback, selectedTrend);
+                return new GenerationRequest(fallback, selectedTrend, format);
             }
         }
     }

@@ -20,12 +20,18 @@ public class StripeService(IOptions<StripeOptions> options)
             CustomerEmail = customerEmail,
             SuccessUrl = $"{frontendBaseUrl}/orders/{order.Id}?session_id={{CHECKOUT_SESSION_ID}}",
             CancelUrl = $"{frontendBaseUrl}/cart?canceled=true",
+            // Required so we have somewhere to ship the printed canvas to - PLACEHOLDER: adjust
+            // the allowed countries to whatever Gelato can actually print/ship to for your account.
+            ShippingAddressCollection = new SessionShippingAddressCollectionOptions
+            {
+                AllowedCountries = ["CA", "US"],
+            },
             LineItems = [.. order.Items.Select(item => new SessionLineItemOptions
             {
                 Quantity = item.Quantity,
                 PriceData = new SessionLineItemPriceDataOptions
                 {
-                    Currency = "usd",
+                    Currency = order.Currency.ToLowerInvariant(),
                     UnitAmountDecimal = item.Price * 100,
                     ProductData = new SessionLineItemPriceDataProductDataOptions
                     {

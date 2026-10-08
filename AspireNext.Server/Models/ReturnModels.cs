@@ -33,6 +33,7 @@ public record AdminReturnDto(
     string Reason,
     string? ReviewNote,
     decimal? RefundAmount,
+    string Currency,
     List<ReturnItemDto> Items);
 
 public record CreateReturnItemRequest(int OrderItemId, int Quantity);

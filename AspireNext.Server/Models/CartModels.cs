@@ -7,7 +7,7 @@ public record CartItemDto(int ProductId, string Name, string? ImageUrl, decimal 
     public decimal LineTotal => Price * Quantity;
 }
 
-public record CartDto(List<CartItemDto> Items)
+public record CartDto(List<CartItemDto> Items, string Currency)
 {
     public decimal Total => Items.Sum(i => i.LineTotal);
 }
@@ -15,3 +15,5 @@ public record CartDto(List<CartItemDto> Items)
 public record AddCartItemRequest(int ProductId, int Quantity);
 
 public record UpdateCartItemRequest(int Quantity);
+
+public record UpdateCartCurrencyRequest(string Currency);

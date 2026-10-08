@@ -5,9 +5,9 @@ public record OrderItemDto(int Id, int ProductId, string ProductName, decimal Pr
     public decimal LineTotal => Price * Quantity;
 }
 
-public record OrderDto(int Id, DateTimeOffset CreatedAt, OrderStatus Status, List<OrderItemDto> Items, List<ReturnDto> Returns)
+public record OrderDto(int Id, DateTimeOffset CreatedAt, OrderStatus Status, string Currency, FulfillmentStatus FulfillmentStatus, List<OrderItemDto> Items, List<ReturnDto> Returns)
 {
     public decimal Total => Items.Sum(i => i.LineTotal);
 }
 
-public record AdminOrderDto(int Id, DateTimeOffset CreatedAt, OrderStatus Status, decimal Total, string UserEmail);
+public record AdminOrderDto(int Id, DateTimeOffset CreatedAt, OrderStatus Status, string Currency, FulfillmentStatus FulfillmentStatus, string? GelatoOrderId, decimal Total, string UserEmail);

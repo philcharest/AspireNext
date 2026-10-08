@@ -39,6 +39,19 @@ public class CartController(CartService cartService) : ControllerBase
     public async Task<IActionResult> RemoveItem(int productId) =>
         Ok(await cartService.RemoveItemAsync(CartCookie.ResolveCartKey(HttpContext), productId));
 
+    [HttpPut("currency")]
+    public async Task<IActionResult> SetCurrency(UpdateCartCurrencyRequest request)
+    {
+        try
+        {
+            return Ok(await cartService.SetCurrencyAsync(CartCookie.ResolveCartKey(HttpContext), request.Currency));
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("merge")]
     [Authorize]
     public async Task<IActionResult> MergeCarts() =>

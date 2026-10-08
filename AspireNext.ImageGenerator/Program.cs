@@ -17,6 +17,7 @@ class Program
     private const string ComfyUIUrl = "http://127.0.0.1:8188";
     private const int StartupTimeoutSeconds = 120;
     private const string WorkflowPath = "commercial_print_workflow_sdxl.json";
+    private const string GenerationLogPath = "generation-log.csv";
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(10);
 
     static async Task Main(string[] args)
@@ -38,9 +39,11 @@ class Program
             {
                 GenerationRequest request = await GenerateTextPrompt();
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Trend : {request.Trend.Name}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Format: {request.Format.Name} ({request.Format.Orientation})");
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Prompt: {request.Prompt}");
 
                 await Call_ComfyUI_Api(request);
+                LogGeneration(request);
 
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ✓ Queued. Next run in {Interval.TotalMinutes} min.\n");
             }
@@ -67,6 +70,7 @@ class Program
 
         var workflow = JsonNode.Parse(workflowJson);
         ArtTrend trend = request.Trend;
+        CanvasFormat format = request.Format;
 
         // 1. Positive prompt -> node 6. Prepend the LoRA trigger word (if any), then add a
         //    framing directive so the output IS the artwork (full-frame), not a photo of a canvas.
@@ -81,6 +85,24 @@ class Program
         string baseNegative = workflow!["71"]!["inputs"]!["text"]!.GetValue<string>();
         if (!string.IsNullOrEmpty(trend.NegativeAdds))
             workflow!["71"]!["inputs"]!["text"] = baseNegative + ", " + trend.NegativeAdds;
+
+        // 2b. Canvas size/orientation -> native generation resolution (node 135), and the refine/
+        //     upscale/crop stages (407/450/302) scaled proportionally from it. upscale_by on node
+        //     450 stays fixed at the pipeline's tuned 4.0 - only the resolutions feeding into and
+        //     out of it change per format.
+        var sizing = ResolveSizing(format.NativeWidth, format.NativeHeight);
+        workflow!["135"]!["inputs"]!["width"] = sizing.NativeWidth;
+        workflow!["135"]!["inputs"]!["height"] = sizing.NativeHeight;
+        workflow!["407"]!["inputs"]!["width"] = sizing.RefineWidth;
+        workflow!["407"]!["inputs"]!["height"] = sizing.RefineHeight;
+        workflow!["302"]!["inputs"]!["width"] = sizing.CropWidth;
+        workflow!["302"]!["inputs"]!["height"] = sizing.CropHeight;
+        workflow!["302"]!["inputs"]!["x"] = sizing.CropOffsetX;
+        workflow!["302"]!["inputs"]!["y"] = sizing.CropOffsetY;
+
+        // Embed the assigned format in the output filename so whoever catalogs the image later
+        // can read its intended physical size straight off the file, without cross-referencing logs.
+        workflow!["301"]!["inputs"]!["filename_prefix"] = $"CommercialPrint_{format.Name.Replace(" ", "")}";
 
         // 3. Per-trend render recipe
         workflow!["402"]!["inputs"]!["model_name"] = trend.Upscaler;    // upscaler choice
@@ -125,6 +147,58 @@ class Program
     // Builds a ComfyUI node connection, e.g. ["4", 0], for rewiring inputs at runtime.
     private static JsonArray MakeLink(string nodeId, int outputIndex) =>
         new JsonArray(JsonValue.Create(nodeId), JsonValue.Create(outputIndex));
+
+    private record CanvasSizing(int NativeWidth, int NativeHeight, int RefineWidth, int RefineHeight, int CropWidth, int CropHeight, int CropOffsetX, int CropOffsetY);
+
+    // Generalizes the original hand-tuned 832x1216 pipeline (refine at 1.5x native, tiled-upscale
+    // by a fixed 4.0x on node 450, then crop back ~2.9% to trim the upscaler's edge vignette) to
+    // any native resolution, so every CanvasFormat gets the same proven scaling instead of a
+    // single baked-in aspect ratio. Values are rounded to the nearest multiple of 8, which is all
+    // SDXL/ComfyUI's image nodes require.
+    private const double CropKeepFraction = 0.971; // matches the original 4848/4992 and 7080/7296 ratios
+
+    private static CanvasSizing ResolveSizing(int nativeWidth, int nativeHeight)
+    {
+        int refineWidth = RoundToMultipleOf8(nativeWidth * 1.5);
+        int refineHeight = RoundToMultipleOf8(nativeHeight * 1.5);
+
+        int fullWidth = refineWidth * 4;  // node 450's fixed upscale_by: 4.0
+        int fullHeight = refineHeight * 4;
+
+        int cropWidth = RoundToMultipleOf8(fullWidth * CropKeepFraction);
+        int cropHeight = RoundToMultipleOf8(fullHeight * CropKeepFraction);
+
+        return new CanvasSizing(
+            nativeWidth, nativeHeight,
+            refineWidth, refineHeight,
+            cropWidth, cropHeight,
+            (fullWidth - cropWidth) / 2, (fullHeight - cropHeight) / 2);
+    }
+
+    private static int RoundToMultipleOf8(double value) => (int)(Math.Round(value / 8.0) * 8);
+
+    // Append-only record of what each generation run was assigned, since nothing else connects a
+    // saved image file to its intended commercial size - this is what a human cataloging the
+    // output into AspireNext.Server's CatalogSeeder (Product.CanvasWidthCm/CanvasHeightCm/
+    // GelatoProductUid) reads to know which size/orientation each generated file was meant for.
+    private static void LogGeneration(GenerationRequest request)
+    {
+        bool isNewFile = !File.Exists(GenerationLogPath);
+        using var writer = new StreamWriter(GenerationLogPath, append: true, Encoding.UTF8);
+
+        if (isNewFile)
+            writer.WriteLine("TimestampUtc,Trend,FormatName,Orientation,WidthCm,HeightCm,Prompt");
+
+        string Escape(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
+        writer.WriteLine(string.Join(',',
+            DateTime.UtcNow.ToString("O"),
+            Escape(request.Trend.Name),
+            Escape(request.Format.Name),
+            request.Format.Orientation,
+            request.Format.WidthCm,
+            request.Format.HeightCm,
+            Escape(request.Prompt)));
+    }
 
     private static async Task<string> QueuePrompt(string json)
     {

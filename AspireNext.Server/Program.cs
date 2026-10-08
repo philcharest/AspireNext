@@ -3,6 +3,7 @@ using AspireNext.Server.Data;
 using AspireNext.Server.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,9 @@ builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<ReturnService>();
 builder.Services.Configure<StripeOptions>(builder.Configuration.GetSection("Stripe"));
 builder.Services.AddSingleton<StripeService>();
+builder.Services.Configure<GelatoOptions>(builder.Configuration.GetSection("Gelato"));
+builder.Services.AddHttpClient<GelatoService>((sp, client) =>
+    GelatoService.ConfigureAuthHeader(client, sp.GetRequiredService<IOptions<GelatoOptions>>().Value));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
 builder.Services.AddTransient<IEmailSender<ApplicationUser>, SmtpEmailSender>();
 builder.Services.AddAuthorization();

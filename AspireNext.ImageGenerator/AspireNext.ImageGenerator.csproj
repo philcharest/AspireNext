@@ -12,4 +12,10 @@
     <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="132.0.6834.8300" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Was previously only a hand-placed, gitignored build artifact (bin/ is excluded) - now
+         tracked as source and copied to the output dir Program.cs reads it from at runtime. -->
+    <None Include="commercial_print_workflow_sdxl.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

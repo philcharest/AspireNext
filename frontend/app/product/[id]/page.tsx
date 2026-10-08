@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ProductCartControls } from "@/components/product-cart-controls";
+import { ProductPrice } from "@/components/product-price";
 
 type Product = {
     id: number;
@@ -11,13 +12,9 @@ type Product = {
     description: string | null;
     imageUrl: string | null;
     price: number;
+    priceUsd: number | null;
     categoryName: string | null;
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
 
 export default function ProductDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -90,9 +87,11 @@ export default function ProductDetailPage() {
                     {product.description && (
                         <p className="mt-4 text-muted-foreground">{product.description}</p>
                     )}
-                    <p className="mt-8 font-heading text-2xl text-foreground tabular-nums">
-                        {currencyFormatter.format(product.price)}
-                    </p>
+                    <ProductPrice
+                        price={product.price}
+                        priceUsd={product.priceUsd}
+                        className="mt-8 block font-heading text-2xl text-foreground tabular-nums"
+                    />
                     <div className="mt-6">
                         <ProductCartControls productId={product.id} />
                     </div>

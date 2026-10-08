@@ -8,11 +8,13 @@ namespace AspireNext.Server.Data;
 public class CartService(IDistributedCache cache, AppDbContext db)
 {
     private static readonly TimeSpan CartLifetime = TimeSpan.FromDays(30);
+    private static readonly string[] SupportedCurrencies = ["CAD", "USD"];
 
     public async Task<CartDto> GetCartAsync(string cartId)
     {
         var lines = await LoadLinesAsync(cartId);
-        return await ToCartDtoAsync(lines);
+        var currency = await GetCurrencyAsync(cartId);
+        return await ToCartDtoAsync(lines, currency);
     }
 
     public async Task<CartDto> AddItemAsync(string cartId, int productId, int quantity)
@@ -30,7 +32,7 @@ public class CartService(IDistributedCache cache, AppDbContext db)
             : [.. lines.Where(l => l.ProductId != productId), existing with { Quantity = existing.Quantity + quantity }];
 
         await SaveLinesAsync(cartId, lines);
-        return await ToCartDtoAsync(lines);
+        return await ToCartDtoAsync(lines, await GetCurrencyAsync(cartId));
     }
 
     public async Task<CartDto> UpdateItemAsync(string cartId, int productId, int quantity)
@@ -41,7 +43,7 @@ public class CartService(IDistributedCache cache, AppDbContext db)
             : [.. lines.Select(l => l.ProductId == productId ? l with { Quantity = quantity } : l)];
 
         await SaveLinesAsync(cartId, lines);
-        return await ToCartDtoAsync(lines);
+        return await ToCartDtoAsync(lines, await GetCurrencyAsync(cartId));
     }
 
     public async Task<CartDto> RemoveItemAsync(string cartId, int productId)
@@ -49,10 +51,25 @@ public class CartService(IDistributedCache cache, AppDbContext db)
         var lines = await LoadLinesAsync(cartId);
         lines = [.. lines.Where(l => l.ProductId != productId)];
         await SaveLinesAsync(cartId, lines);
-        return await ToCartDtoAsync(lines);
+        return await ToCartDtoAsync(lines, await GetCurrencyAsync(cartId));
     }
 
-    public Task ClearCartAsync(string cartId) => cache.RemoveAsync(CacheKey(cartId));
+    public async Task<CartDto> SetCurrencyAsync(string cartId, string currency)
+    {
+        if (!SupportedCurrencies.Contains(currency))
+            throw new ArgumentOutOfRangeException(nameof(currency), "Currency must be CAD or USD.");
+
+        await cache.SetStringAsync(
+            CurrencyCacheKey(cartId),
+            currency,
+            new DistributedCacheEntryOptions { SlidingExpiration = CartLifetime });
+
+        var lines = await LoadLinesAsync(cartId);
+        return await ToCartDtoAsync(lines, currency);
+    }
+
+    public Task ClearCartAsync(string cartId) =>
+        Task.WhenAll(cache.RemoveAsync(CacheKey(cartId)), cache.RemoveAsync(CurrencyCacheKey(cartId)));
 
     /// <summary>
     /// Folds the cart at <paramref name="fromCartId"/> into the cart at <paramref name="intoCartId"/>,
@@ -77,7 +94,7 @@ public class CartService(IDistributedCache cache, AppDbContext db)
 
         await SaveLinesAsync(intoCartId, merged);
         await ClearCartAsync(fromCartId);
-        return await ToCartDtoAsync(merged);
+        return await ToCartDtoAsync(merged, await GetCurrencyAsync(intoCartId));
     }
 
     private async Task<List<CartLine>> LoadLinesAsync(string cartId)
@@ -92,10 +109,13 @@ public class CartService(IDistributedCache cache, AppDbContext db)
             JsonSerializer.Serialize(lines),
             new DistributedCacheEntryOptions { SlidingExpiration = CartLifetime });
 
-    private async Task<CartDto> ToCartDtoAsync(List<CartLine> lines)
+    private async Task<string> GetCurrencyAsync(string cartId) =>
+        await cache.GetStringAsync(CurrencyCacheKey(cartId)) ?? "CAD";
+
+    private async Task<CartDto> ToCartDtoAsync(List<CartLine> lines, string currency)
     {
         if (lines.Count == 0)
-            return new CartDto([]);
+            return new CartDto([], currency);
 
         var productIds = lines.Select(l => l.ProductId).ToList();
         var products = await db.Products
@@ -107,12 +127,14 @@ public class CartService(IDistributedCache cache, AppDbContext db)
             .Select(l =>
             {
                 var product = products[l.ProductId];
-                return new CartItemDto(product.Id, product.Name, product.ImageUrl, product.Price, l.Quantity);
+                var price = currency == "USD" ? product.PriceUsd ?? product.Price : product.Price;
+                return new CartItemDto(product.Id, product.Name, product.ImageUrl, price, l.Quantity);
             })
             .ToList();
 
-        return new CartDto(items);
+        return new CartDto(items, currency);
     }
 
     private static string CacheKey(string cartId) => $"cart:{cartId}";
+    private static string CurrencyCacheKey(string cartId) => $"cart-currency:{cartId}";
 }

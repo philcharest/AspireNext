@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { extractError } from "@/lib/api-error";
 import { useAuth } from "@/lib/auth-context";
+import { useCurrency } from "@/lib/currency-context";
 import { apiFetch } from "@/lib/csrf";
 
 export type CartItem = {
@@ -17,9 +18,10 @@ export type CartItem = {
 export type Cart = {
     items: CartItem[];
     total: number;
+    currency: "CAD" | "USD";
 };
 
-const EMPTY_CART: Cart = { items: [], total: 0 };
+const EMPTY_CART: Cart = { items: [], total: 0, currency: "CAD" };
 
 type CheckoutResult = { ok: true; checkoutUrl: string } | { ok: false; error: string };
 
@@ -37,8 +39,10 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
+    const { currency } = useCurrency();
     const [cart, setCart] = useState<Cart>(EMPTY_CART);
     const [loading, setLoading] = useState(true);
+    const isFirstCurrencySync = useRef(true);
 
     useEffect(() => {
         fetch("/api/cart")
@@ -46,6 +50,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             .then(setCart)
             .finally(() => setLoading(false));
     }, []);
+
+    // Push the visitor's currency choice to the server-held cart so prices (and eventual
+    // checkout) reflect it. Skipped on mount - the cart's initial fetch above already reflects
+    // whatever currency the server has on file for this cart.
+    useEffect(() => {
+        if (isFirstCurrencySync.current) {
+            isFirstCurrencySync.current = false;
+            return;
+        }
+        apiFetch("/api/cart/currency", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ currency }),
+        })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((updated) => {
+                if (updated) setCart(updated);
+            });
+    }, [currency]);
 
     // Fold any anonymous-session cart items into the signed-in user's cart. Cheap no-op
     // when there's nothing to merge (e.g. on every already-logged-in page load).

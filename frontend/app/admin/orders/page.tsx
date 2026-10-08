@@ -2,19 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { formatPrice } from "@/lib/currency";
 
 type AdminOrder = {
     id: number;
     createdAt: string;
     status: string;
+    currency: "CAD" | "USD";
     total: number;
     userEmail: string;
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
 
 const STATUS_BADGE: Record<string, { variant: "default" | "outline" | "destructive"; label: string }> = {
     Paid: { variant: "default", label: "Paid" },
@@ -56,7 +53,7 @@ export default function AdminOrdersPage() {
                             </div>
                         </div>
                         <span className="font-heading tabular-nums text-foreground">
-                            {currencyFormatter.format(order.total)}
+                            {formatPrice(order.total, order.currency)}
                         </span>
                     </li>
                 );

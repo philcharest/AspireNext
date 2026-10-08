@@ -33,6 +33,11 @@ var catalogDb = postgres.AddDatabase("catalogdb");
 var stripeSecretKey = builder.AddParameter("stripe-secret-key", secret: true);
 var stripeWebhookSecret = builder.AddParameter("stripe-webhook-secret", secret: true);
 
+// PLACEHOLDER - fill these in (e.g. via `dotnet user-secrets` on this AppHost project) once your
+// Gelato account exists: https://dashboard.gelato.com/account/api-keys
+var gelatoApiKey = builder.AddParameter("gelato-api-key", secret: true);
+var gelatoWebhookSecret = builder.AddParameter("gelato-webhook-secret", secret: true);
+
 var smtpHost = builder.AddParameter("smtp-host");
 var smtpPort = builder.AddParameter("smtp-port");
 var smtpUsername = builder.AddParameter("smtp-username", secret: true);
@@ -67,6 +72,8 @@ var server = builder.AddProject<Projects.AspireNext_Server>("server")
     .WithReference(frontend) // so the server can build Stripe success/cancel URLs pointing back at the frontend
     .WithEnvironment("Stripe__SecretKey", stripeSecretKey)
     .WithEnvironment("Stripe__WebhookSecret", stripeWebhookSecret)
+    .WithEnvironment("Gelato__ApiKey", gelatoApiKey)
+    .WithEnvironment("Gelato__WebhookSecret", gelatoWebhookSecret)
     .WithEnvironment("Smtp__Host", smtpHost)
     .WithEnvironment("Smtp__Port", smtpPort)
     .WithEnvironment("Smtp__Username", smtpUsername)

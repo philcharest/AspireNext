@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { extractError } from "@/lib/api-error";
 import { apiFetch } from "@/lib/csrf";
+import { formatPrice } from "@/lib/currency";
 
 type OrderItem = {
     id: number;
@@ -38,15 +39,11 @@ type Order = {
     id: number;
     createdAt: string;
     status: string;
+    currency: "CAD" | "USD";
     items: OrderItem[];
     returns: OrderReturn[];
     total: number;
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
 
 const RETURN_STATUS_BADGE: Record<string, { variant: "default" | "outline" | "destructive"; label: string }> = {
     Requested: { variant: "outline", label: "Requested" },
@@ -220,11 +217,11 @@ export default function OrderDetailPage() {
                         <div>
                             <p className="font-heading text-base text-foreground">{item.productName}</p>
                             <p className="text-sm text-muted-foreground">
-                                {currencyFormatter.format(item.price)} &times; {item.quantity}
+                                {formatPrice(item.price, order.currency)} &times; {item.quantity}
                             </p>
                         </div>
                         <span className="font-heading text-foreground tabular-nums">
-                            {currencyFormatter.format(item.lineTotal)}
+                            {formatPrice(item.lineTotal, order.currency)}
                         </span>
                     </li>
                 ))}
@@ -233,7 +230,7 @@ export default function OrderDetailPage() {
             <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
                 <span className="font-heading text-lg text-foreground">Total</span>
                 <span className="font-heading text-lg text-foreground tabular-nums">
-                    {currencyFormatter.format(order.total)}
+                    {formatPrice(order.total, order.currency)}
                 </span>
             </div>
 
@@ -259,7 +256,7 @@ export default function OrderDetailPage() {
                                     )}
                                     {ret.refundAmount !== null && (
                                         <p className="mt-1 text-foreground">
-                                            Refunded {currencyFormatter.format(ret.refundAmount)}
+                                            Refunded {formatPrice(ret.refundAmount, order.currency)}
                                         </p>
                                     )}
                                 </li>

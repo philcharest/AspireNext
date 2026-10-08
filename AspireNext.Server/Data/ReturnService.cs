@@ -91,6 +91,7 @@ public class ReturnService(AppDbContext db, StripeService stripeService)
                 dto.Reason,
                 dto.ReviewNote,
                 dto.RefundAmount,
+                order.Currency,
                 dto.Items);
         })];
     }

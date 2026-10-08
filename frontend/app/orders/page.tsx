@@ -5,18 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
+import { formatPrice } from "@/lib/currency";
 
 type Order = {
     id: number;
     createdAt: string;
     status: string;
+    currency: "CAD" | "USD";
     total: number;
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
 
 const STATUS_BADGE: Record<string, { variant: "default" | "outline" | "destructive"; label: string }> = {
     Paid: { variant: "default", label: "Paid" },
@@ -84,7 +81,7 @@ export default function OrdersPage() {
                                         </div>
                                     </div>
                                     <span className="font-heading tabular-nums">
-                                        {currencyFormatter.format(order.total)}
+                                        {formatPrice(order.total, order.currency)}
                                     </span>
                                 </Link>
                             </li>

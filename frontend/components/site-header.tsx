@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
+import { useCurrency } from "@/lib/currency-context";
 
 export function SiteHeader() {
     const { itemCount } = useCart();
     const { user, loading, logout } = useAuth();
+    const { currency, setCurrency } = useCurrency();
 
     return (
         <header className="border-b border-border bg-background">
@@ -49,6 +51,23 @@ export function SiteHeader() {
                             </Link>
                         )
                     )}
+                    <div className="flex items-center rounded-full border border-border p-0.5 text-xs">
+                        {(["CAD", "USD"] as const).map((option) => (
+                            <button
+                                key={option}
+                                type="button"
+                                onClick={() => setCurrency(option)}
+                                aria-pressed={currency === option}
+                                className={`rounded-full px-2.5 py-1 transition-colors ${
+                                    currency === option
+                                        ? "bg-foreground text-background"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
                     <Link href="/cart" className="relative flex items-center gap-2 text-foreground">
                         <ShoppingCart className="size-5" />
                         {itemCount > 0 && (

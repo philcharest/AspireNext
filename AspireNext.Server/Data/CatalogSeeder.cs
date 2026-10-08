@@ -496,6 +496,11 @@ public static class CatalogSeeder
             }
         );
 
+        // Placeholder USD pricing (CAD * ~0.73, rounded down to the nearest .99) so checkout works
+        // in USD out of the box. Replace with deliberately chosen USD prices before going live.
+        foreach (var product in db.Products.Local)
+            product.PriceUsd = Math.Floor(product.Price * 0.73m) - 0.01m;
+
         await db.SaveChangesAsync();
     }
 }

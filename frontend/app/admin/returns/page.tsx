@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { extractError } from "@/lib/api-error";
 import { apiFetch } from "@/lib/csrf";
+import { formatPrice } from "@/lib/currency";
 
 type ReturnItem = {
     orderItemId: number;
@@ -21,13 +22,9 @@ type AdminReturn = {
     reason: string;
     reviewNote: string | null;
     refundAmount: number | null;
+    currency: "CAD" | "USD";
     items: ReturnItem[];
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
 
 const STATUS_BADGE: Record<string, { variant: "default" | "outline" | "destructive"; label: string }> = {
     Requested: { variant: "outline", label: "Requested" },
@@ -108,7 +105,7 @@ export default function AdminReturnsPage() {
                                 </div>
                                 {ret.refundAmount !== null && (
                                     <span className="font-heading tabular-nums text-foreground">
-                                        {currencyFormatter.format(ret.refundAmount)}
+                                        {formatPrice(ret.refundAmount, ret.currency)}
                                     </span>
                                 )}
                             </div>

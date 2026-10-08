@@ -21,6 +21,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             .Property(p => p.Price)
             .HasPrecision(10, 2);
 
+        modelBuilder.Entity<Product>()
+            .Property(p => p.PriceUsd)
+            .HasPrecision(10, 2);
+
+        modelBuilder.Entity<Product>()
+            .Property(p => p.CanvasWidthCm)
+            .HasPrecision(6, 2);
+
+        modelBuilder.Entity<Product>()
+            .Property(p => p.CanvasHeightCm)
+            .HasPrecision(6, 2);
+
         modelBuilder.Entity<Order>()
             .HasMany(o => o.Items)
             .WithOne()
@@ -31,7 +43,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             .HasConversion<string>();
 
         modelBuilder.Entity<Order>()
+            .Property(o => o.Currency)
+            .HasMaxLength(3);
+
+        modelBuilder.Entity<Order>()
             .HasIndex(o => o.StripeCheckoutSessionId);
+
+        modelBuilder.Entity<Order>()
+            .HasIndex(o => o.GelatoOrderId);
+
+        modelBuilder.Entity<Order>()
+            .OwnsOne(o => o.ShippingAddress);
+
+        modelBuilder.Entity<Order>()
+            .Property(o => o.FulfillmentStatus)
+            .HasConversion<string>();
 
         modelBuilder.Entity<OrderItem>()
             .Property(i => i.Price)

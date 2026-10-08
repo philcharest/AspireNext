@@ -1,0 +1,177 @@
+{
+  "4": {
+    "inputs": {
+      "ckpt_name": "juggernautXL_ragnarok.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Load Checkpoint (JuggernautXL)" }
+  },
+  "500": {
+    "inputs": {
+      "lora_name": "ink-style_A3.1_XL.safetensors",
+      "strength_model": 0.8,
+      "strength_clip": 0.8,
+      "model": ["4", 0],
+      "clip": ["4", 1]
+    },
+    "class_type": "LoraLoader",
+    "_meta": { "title": "Load LoRA (per-trend, set by C#)" }
+  },
+  "6": {
+    "inputs": {
+      "text": "PROMPT_INJECTED_BY_CSHARP",
+      "clip": ["500", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "CLIP Text Encode (Positive)" }
+  },
+  "71": {
+    "inputs": {
+      "text": "blurry, low quality, jpeg artifacts, watermark, signature, text, deformed, extra limbs, bad anatomy, canvas on a wall, framed picture, picture frame, mockup, 3d perspective, photo of a painting, artwork hanging on wall, room interior, easel, gallery wall, angled view, border, matte border",
+      "clip": ["500", 1]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "CLIP Text Encode (Negative)" }
+  },
+  "135": {
+    "inputs": {
+      "width": 832,
+      "height": 1216,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Empty Latent (SDXL native, 2:3 portrait)" }
+  },
+  "294": {
+    "inputs": {
+      "seed": 508319039988018,
+      "steps": 30,
+      "cfg": 5.5,
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": ["500", 0],
+      "positive": ["6", 0],
+      "negative": ["71", 0],
+      "latent_image": ["135", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "KSampler - Pass 1 (native generation, 2M SDE)" }
+  },
+  "405": {
+    "inputs": {
+      "samples": ["294", 0],
+      "vae": ["4", 2]
+    },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode (pass 1 -> pixels)" }
+  },
+  "402": {
+    "inputs": {
+      "model_name": "4x-UltraSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": { "title": "Load Upscale Model (set by C#)" }
+  },
+  "406": {
+    "inputs": {
+      "upscale_model": ["402", 0],
+      "image": ["405", 0]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": { "title": "Pixel Upscale 4x (ESRGAN, clean base for refine)" }
+  },
+  "407": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": 1248,
+      "height": 1824,
+      "crop": "disabled",
+      "image": ["406", 0]
+    },
+    "class_type": "ImageScale",
+    "_meta": { "title": "Downscale to 1248x1824 (refine resolution)" }
+  },
+  "408": {
+    "inputs": {
+      "pixels": ["407", 0],
+      "vae": ["4", 2]
+    },
+    "class_type": "VAEEncode",
+    "_meta": { "title": "VAE Encode (pixels -> latent for pass 2)" }
+  },
+  "401": {
+    "inputs": {
+      "seed": 123456789012345,
+      "steps": 24,
+      "cfg": 4.5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.32,
+      "model": ["500", 0],
+      "positive": ["6", 0],
+      "negative": ["71", 0],
+      "latent_image": ["408", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "KSampler - Pass 2 (hires refine, pixel-space source)" }
+  },
+  "404": {
+    "inputs": {
+      "samples": ["401", 0],
+      "vae": ["4", 2]
+    },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode (refined 1248x1824)" }
+  },
+  "450": {
+    "inputs": {
+      "upscale_by": 4.0,
+      "seed": 987654321098765,
+      "steps": 20,
+      "cfg": 4.5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.20,
+      "mode_type": "Linear",
+      "tile_width": 1024,
+      "tile_height": 1024,
+      "mask_blur": 16,
+      "tile_padding": 64,
+      "seam_fix_mode": "Band Pass",
+      "seam_fix_denoise": 0.25,
+      "seam_fix_width": 64,
+      "seam_fix_mask_blur": 16,
+      "seam_fix_padding": 16,
+      "force_uniform_tiles": true,
+      "tiled_decode": false,
+      "image": ["404", 0],
+      "model": ["500", 0],
+      "positive": ["6", 0],
+      "negative": ["71", 0],
+      "vae": ["4", 2],
+      "upscale_model": ["402", 0]
+    },
+    "class_type": "UltimateSDUpscale",
+    "_meta": { "title": "Ultimate SD Upscale (tiled refine -> 4992x7296 print res)" }
+  },
+  "302": {
+    "inputs": {
+      "width": 4848,
+      "height": 7080,
+      "x": 72,
+      "y": 108,
+      "image": ["450", 0]
+    },
+    "class_type": "ImageCrop",
+    "_meta": { "title": "Crop outer edge (~1.5% margin, 4992x7296 -> 4848x7080, kills border/vignette)" }
+  },
+  "301": {
+    "inputs": {
+      "filename_prefix": "CommercialPrint",
+      "images": ["302", 0]
+    },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save Image (print-ready, edge-cropped)" }
+  }
+}

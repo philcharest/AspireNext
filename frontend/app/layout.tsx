@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { CartProvider } from "@/lib/cart-context";
 import { AuthProvider } from "@/lib/auth-context";
+import { CurrencyProvider } from "@/lib/currency-context";
 import { ConsentProvider } from "@/lib/consent-context";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -41,15 +42,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} flex min-h-screen flex-col antialiased`}
       >
         <AuthProvider>
-          <CartProvider>
-            <ConsentProvider>
-              <SiteHeader />
-              <div className="flex-1">{children}</div>
-              <SiteFooter />
-              <CookieConsentBanner />
-              <AnalyticsLoader />
-            </ConsentProvider>
-          </CartProvider>
+          <CurrencyProvider>
+            <CartProvider>
+              <ConsentProvider>
+                <SiteHeader />
+                <div className="flex-1">{children}</div>
+                <SiteFooter />
+                <CookieConsentBanner />
+                <AnalyticsLoader />
+              </ConsentProvider>
+            </CartProvider>
+          </CurrencyProvider>
         </AuthProvider>
       </body>
     </html>
