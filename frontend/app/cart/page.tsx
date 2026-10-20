@@ -65,7 +65,7 @@ function CartPageContent() {
                 <>
                     <ul className="mt-12 divide-y divide-border">
                         {cart.items.map((item) => (
-                            <li key={item.productId} className="flex items-center gap-5 py-6">
+                            <li key={`${item.productId}-${item.sizeId}`} className="flex items-center gap-5 py-6">
                                 {item.imageUrl && (
                                     <div className="gallery-frame w-20 shrink-0">
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -79,14 +79,14 @@ function CartPageContent() {
                                 <div className="flex-1">
                                     <p className="font-heading text-base text-foreground">{item.name}</p>
                                     <p className="text-sm text-muted-foreground">
-                                        {formatPrice(item.price, cart.currency)} each
+                                        {item.sizeLabel} · {formatPrice(item.price, cart.currency)} each
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Button
                                         variant="outline"
                                         size="icon-sm"
-                                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                        onClick={() => updateQuantity(item.productId, item.sizeId, item.quantity - 1)}
                                     >
                                         <Minus />
                                     </Button>
@@ -94,7 +94,7 @@ function CartPageContent() {
                                     <Button
                                         variant="outline"
                                         size="icon-sm"
-                                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                        onClick={() => updateQuantity(item.productId, item.sizeId, item.quantity + 1)}
                                     >
                                         <Plus />
                                     </Button>
@@ -105,8 +105,8 @@ function CartPageContent() {
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
-                                    onClick={() => removeItem(item.productId)}
-                                    aria-label={`Remove ${item.name}`}
+                                    onClick={() => removeItem(item.productId, item.sizeId)}
+                                    aria-label={`Remove ${item.name}, ${item.sizeLabel}`}
                                 >
                                     <X />
                                 </Button>

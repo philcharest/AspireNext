@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
 {
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<CanvasSize> CanvasSizes => Set<CanvasSize>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Return> Returns => Set<Return>();
@@ -18,20 +19,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<Product>()
-            .Property(p => p.Price)
-            .HasPrecision(10, 2);
+            .Property(p => p.Orientation)
+            .HasConversion<string>();
 
-        modelBuilder.Entity<Product>()
-            .Property(p => p.PriceUsd)
-            .HasPrecision(10, 2);
-
-        modelBuilder.Entity<Product>()
-            .Property(p => p.CanvasWidthCm)
-            .HasPrecision(6, 2);
-
-        modelBuilder.Entity<Product>()
-            .Property(p => p.CanvasHeightCm)
-            .HasPrecision(6, 2);
+        modelBuilder.Entity<CanvasSize>(size =>
+        {
+            size.Property(s => s.WidthCm).HasPrecision(6, 2);
+            size.Property(s => s.HeightCm).HasPrecision(6, 2);
+            size.Property(s => s.Price).HasPrecision(10, 2);
+            size.Property(s => s.PriceUsd).HasPrecision(10, 2);
+            size.Property(s => s.GelatoFormat).HasMaxLength(50);
+        });
 
         modelBuilder.Entity<Order>()
             .HasMany(o => o.Items)

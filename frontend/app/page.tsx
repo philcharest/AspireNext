@@ -1,14 +1,15 @@
 import Link from "next/link";
-import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductPrice } from "@/components/product-price";
+import { buttonVariants } from "@/components/ui/button";
 
 type Product = {
     id: number;
     name: string;
     description: string | null;
     imageUrl: string | null;
+    // Cheapest size's price - products are sold in several canvas sizes.
     price: number;
-    priceUsd: number | null;
+    priceUsd: number;
     categoryName: string | null;
 };
 
@@ -115,12 +116,20 @@ export default async function Home({
                                     </div>
                                 </Link>
                                 <div className="mt-4 flex items-center justify-between gap-4">
-                                    <ProductPrice
-                                        price={product.price}
-                                        priceUsd={product.priceUsd}
-                                        className="font-heading text-base text-foreground tabular-nums"
-                                    />
-                                    <AddToCartButton productId={product.id} />
+                                    <p className="font-heading text-base text-foreground">
+                                        <span className="text-sm text-muted-foreground">From </span>
+                                        <ProductPrice
+                                            price={product.price}
+                                            priceUsd={product.priceUsd}
+                                            className="tabular-nums"
+                                        />
+                                    </p>
+                                    <Link
+                                        href={`/product/${product.id}`}
+                                        className={buttonVariants({ size: "lg" })}
+                                    >
+                                        Choose Size
+                                    </Link>
                                 </div>
                             </li>
                         ))}

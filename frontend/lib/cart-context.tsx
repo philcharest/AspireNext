@@ -8,7 +8,9 @@ import { apiFetch } from "@/lib/csrf";
 
 export type CartItem = {
     productId: number;
+    sizeId: number;
     name: string;
+    sizeLabel: string;
     imageUrl: string | null;
     price: number;
     quantity: number;
@@ -29,9 +31,9 @@ type CartContextValue = {
     cart: Cart;
     itemCount: number;
     loading: boolean;
-    addItem: (productId: number, quantity?: number) => Promise<void>;
-    updateQuantity: (productId: number, quantity: number) => Promise<void>;
-    removeItem: (productId: number) => Promise<void>;
+    addItem: (productId: number, sizeId: number, quantity?: number) => Promise<void>;
+    updateQuantity: (productId: number, sizeId: number, quantity: number) => Promise<void>;
+    removeItem: (productId: number, sizeId: number) => Promise<void>;
     checkout: () => Promise<CheckoutResult>;
 };
 
@@ -81,17 +83,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             });
     }, [user]);
 
-    const addItem = useCallback(async (productId: number, quantity = 1) => {
+    const addItem = useCallback(async (productId: number, sizeId: number, quantity = 1) => {
         const res = await apiFetch("/api/cart/items", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ productId, quantity }),
+            body: JSON.stringify({ productId, sizeId, quantity }),
         });
         if (res.ok) setCart(await res.json());
     }, []);
 
-    const updateQuantity = useCallback(async (productId: number, quantity: number) => {
-        const res = await apiFetch(`/api/cart/items/${productId}`, {
+    const updateQuantity = useCallback(async (productId: number, sizeId: number, quantity: number) => {
+        const res = await apiFetch(`/api/cart/items/${productId}/${sizeId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ quantity }),
@@ -99,8 +101,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) setCart(await res.json());
     }, []);
 
-    const removeItem = useCallback(async (productId: number) => {
-        const res = await apiFetch(`/api/cart/items/${productId}`, { method: "DELETE" });
+    const removeItem = useCallback(async (productId: number, sizeId: number) => {
+        const res = await apiFetch(`/api/cart/items/${productId}/${sizeId}`, { method: "DELETE" });
         if (res.ok) setCart(await res.json());
     }, []);
 

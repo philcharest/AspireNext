@@ -1,6 +1,6 @@
 namespace AspireNext.Server.Models;
 
-public record OrderItemDto(int Id, int ProductId, string ProductName, decimal Price, int Quantity)
+public record OrderItemDto(int Id, int ProductId, string ProductName, string? SizeLabel, decimal Price, int Quantity)
 {
     public decimal LineTotal => Price * Quantity;
 }

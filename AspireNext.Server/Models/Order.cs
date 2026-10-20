@@ -43,6 +43,12 @@ public class OrderItem
     public int OrderId { get; set; }
     public int ProductId { get; set; }
     public required string ProductName { get; set; }
+
+    // The canvas size bought, snapshotted as a label too so order history reads correctly even if
+    // sizes change later. Null only on orders placed before products were sold in multiple sizes.
+    public int? CanvasSizeId { get; set; }
+    public string? SizeLabel { get; set; }
+
     public decimal Price { get; set; }
     public int Quantity { get; set; }
 }

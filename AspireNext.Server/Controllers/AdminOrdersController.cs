@@ -14,7 +14,7 @@ public class AdminOrdersController(OrderService orderService) : ControllerBase
         Ok(await orderService.GetAllOrdersAsync());
 
     // Retries submitting an order to Gelato - useful while FulfillmentStatus.Failed orders pile up
-    // because Product.GelatoProductUid mappings or the Gelato account aren't fully set up yet.
+    // because an item's canvas size or the Gelato account isn't fully set up yet.
     [HttpPost("{id:int}/resubmit-fulfillment")]
     [TypeFilter(typeof(AntiforgeryActionFilter))]
     public async Task<IActionResult> ResubmitFulfillment(int id)

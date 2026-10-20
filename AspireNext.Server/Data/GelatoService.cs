@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -82,17 +83,30 @@ public partial class GelatoService(HttpClient httpClient, IOptions<GelatoOptions
             (Math.Abs(s.WidthCm - heightCm) <= toleranceCm && Math.Abs(s.HeightCm - widthCm) <= toleranceCm));
     }
 
+    // Gelato titles its canvas sizes as e.g. "500x700 mm" or "24x30 inches" - normalize both to cm.
     private static (decimal, decimal)? ParseSizeCm(string title)
     {
-        var match = SizeCmRegex().Match(title);
+        var match = SizeRegex().Match(title);
         if (!match.Success)
             return null;
 
-        return (decimal.Parse(match.Groups[1].Value), decimal.Parse(match.Groups[2].Value));
+        var toCm = match.Groups[3].Value.ToLowerInvariant() switch
+        {
+            "mm" => 0.1m,
+            "cm" => 1m,
+            _ => 2.54m, // in / inch / inches
+        };
+        return (decimal.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture) * toCm,
+                decimal.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture) * toCm);
     }
 
-    [GeneratedRegex(@"(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*cm", RegexOptions.IgnoreCase)]
-    private static partial Regex SizeCmRegex();
+    [GeneratedRegex(@"(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*(mm|cm|inches|inch|in)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SizeRegex();
+
+    // e.g. canvas_product_cf_400x600-mm_cm_canvas_cfrm_wood-fsc-2-cm_cl_4-0_ver - the pattern of
+    // Gelato's frame-depth canvas products (see docs/gelato-canvas-catalog.md).
+    public string BuildCanvasProductUid(CanvasSize size, CanvasOrientation orientation) =>
+        $"canvas_product_cf_{size.GelatoFormat}_cm_canvas_cfrm_{_options.CanvasFrameUid}_cl_4-0_{(orientation == CanvasOrientation.Landscape ? "hor" : "ver")}";
 
     public static void ConfigureAuthHeader(HttpClient client, GelatoOptions options) =>
         client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-KEY", options.ApiKey);

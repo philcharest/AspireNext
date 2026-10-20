@@ -6,26 +6,39 @@ import Link from "next/link";
 import { ProductCartControls } from "@/components/product-cart-controls";
 import { ProductPrice } from "@/components/product-price";
 
+type ProductSize = {
+    id: number;
+    label: string;
+    price: number;
+    priceUsd: number;
+};
+
 type Product = {
     id: number;
     name: string;
     description: string | null;
     imageUrl: string | null;
-    price: number;
-    priceUsd: number | null;
     categoryName: string | null;
+    sizes: ProductSize[];
 };
 
 export default function ProductDetailPage() {
     const { id } = useParams<{ id: string }>();
     const [product, setProduct] = useState<Product | null>(null);
+    const [sizeId, setSizeId] = useState<number | null>(null);
     const [notFound, setNotFound] = useState(false);
     const [zoomOpen, setZoomOpen] = useState(false);
 
     useEffect(() => {
         fetch(`/api/products/${id}`).then((res) => {
-            if (res.ok) return res.json().then(setProduct);
-            setNotFound(true);
+            if (!res.ok) {
+                setNotFound(true);
+                return;
+            }
+            return res.json().then((loaded: Product) => {
+                setProduct(loaded);
+                setSizeId(loaded.sizes[0]?.id ?? null);
+            });
         });
     }, [id]);
 
@@ -60,6 +73,8 @@ export default function ProductDetailPage() {
         );
     }
 
+    const selectedSize = product.sizes.find((s) => s.id === sizeId) ?? null;
+
     return (
         <main className="mx-auto max-w-5xl px-6 py-24">
             <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
@@ -87,14 +102,40 @@ export default function ProductDetailPage() {
                     {product.description && (
                         <p className="mt-4 text-muted-foreground">{product.description}</p>
                     )}
-                    <ProductPrice
-                        price={product.price}
-                        priceUsd={product.priceUsd}
-                        className="mt-8 block font-heading text-2xl text-foreground tabular-nums"
-                    />
-                    <div className="mt-6">
-                        <ProductCartControls productId={product.id} />
-                    </div>
+                    {product.sizes.length > 0 && (
+                        <fieldset className="mt-8">
+                            <legend className="gallery-eyebrow">Canvas size</legend>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {product.sizes.map((size) => (
+                                    <button
+                                        key={size.id}
+                                        type="button"
+                                        onClick={() => setSizeId(size.id)}
+                                        aria-pressed={size.id === sizeId}
+                                        className={`rounded-full border px-4 py-1.5 text-sm tabular-nums transition-colors ${
+                                            size.id === sizeId
+                                                ? "border-foreground bg-foreground text-background"
+                                                : "border-border text-foreground hover:bg-muted"
+                                        }`}
+                                    >
+                                        {size.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </fieldset>
+                    )}
+                    {selectedSize && (
+                        <>
+                            <ProductPrice
+                                price={selectedSize.price}
+                                priceUsd={selectedSize.priceUsd}
+                                className="mt-6 block font-heading text-2xl text-foreground tabular-nums"
+                            />
+                            <div className="mt-6">
+                                <ProductCartControls productId={product.id} sizeId={selectedSize.id} />
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 

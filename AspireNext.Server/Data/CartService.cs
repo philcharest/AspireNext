@@ -17,7 +17,7 @@ public class CartService(IDistributedCache cache, AppDbContext db)
         return await ToCartDtoAsync(lines, currency);
     }
 
-    public async Task<CartDto> AddItemAsync(string cartId, int productId, int quantity)
+    public async Task<CartDto> AddItemAsync(string cartId, int productId, int sizeId, int quantity)
     {
         if (quantity < 1)
             throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be at least 1.");
@@ -25,31 +25,34 @@ public class CartService(IDistributedCache cache, AppDbContext db)
         if (!await db.Products.AnyAsync(p => p.Id == productId))
             throw new KeyNotFoundException($"Product {productId} not found.");
 
+        if (!await db.CanvasSizes.AnyAsync(s => s.Id == sizeId))
+            throw new KeyNotFoundException($"Canvas size {sizeId} not found.");
+
         var lines = await LoadLinesAsync(cartId);
-        var existing = lines.FirstOrDefault(l => l.ProductId == productId);
+        var existing = lines.FirstOrDefault(l => IsLine(l, productId, sizeId));
         lines = existing is null
-            ? [.. lines, new CartLine(productId, quantity)]
-            : [.. lines.Where(l => l.ProductId != productId), existing with { Quantity = existing.Quantity + quantity }];
+            ? [.. lines, new CartLine(productId, sizeId, quantity)]
+            : [.. lines.Where(l => !IsLine(l, productId, sizeId)), existing with { Quantity = existing.Quantity + quantity }];
 
         await SaveLinesAsync(cartId, lines);
         return await ToCartDtoAsync(lines, await GetCurrencyAsync(cartId));
     }
 
-    public async Task<CartDto> UpdateItemAsync(string cartId, int productId, int quantity)
+    public async Task<CartDto> UpdateItemAsync(string cartId, int productId, int sizeId, int quantity)
     {
         var lines = await LoadLinesAsync(cartId);
         lines = quantity < 1
-            ? [.. lines.Where(l => l.ProductId != productId)]
-            : [.. lines.Select(l => l.ProductId == productId ? l with { Quantity = quantity } : l)];
+            ? [.. lines.Where(l => !IsLine(l, productId, sizeId))]
+            : [.. lines.Select(l => IsLine(l, productId, sizeId) ? l with { Quantity = quantity } : l)];
 
         await SaveLinesAsync(cartId, lines);
         return await ToCartDtoAsync(lines, await GetCurrencyAsync(cartId));
     }
 
-    public async Task<CartDto> RemoveItemAsync(string cartId, int productId)
+    public async Task<CartDto> RemoveItemAsync(string cartId, int productId, int sizeId)
     {
         var lines = await LoadLinesAsync(cartId);
-        lines = [.. lines.Where(l => l.ProductId != productId)];
+        lines = [.. lines.Where(l => !IsLine(l, productId, sizeId))];
         await SaveLinesAsync(cartId, lines);
         return await ToCartDtoAsync(lines, await GetCurrencyAsync(cartId));
     }
@@ -73,7 +76,7 @@ public class CartService(IDistributedCache cache, AppDbContext db)
 
     /// <summary>
     /// Folds the cart at <paramref name="fromCartId"/> into the cart at <paramref name="intoCartId"/>,
-    /// summing quantities for products present in both, then clears the source cart.
+    /// summing quantities for product/size lines present in both, then clears the source cart.
     /// </summary>
     public async Task<CartDto> MergeCartsAsync(string fromCartId, string intoCartId)
     {
@@ -85,7 +88,7 @@ public class CartService(IDistributedCache cache, AppDbContext db)
         var merged = new List<CartLine>(intoLines);
         foreach (var line in fromLines)
         {
-            var index = merged.FindIndex(l => l.ProductId == line.ProductId);
+            var index = merged.FindIndex(l => IsLine(l, line.ProductId, line.SizeId));
             if (index >= 0)
                 merged[index] = merged[index] with { Quantity = merged[index].Quantity + line.Quantity };
             else
@@ -96,6 +99,9 @@ public class CartService(IDistributedCache cache, AppDbContext db)
         await ClearCartAsync(fromCartId);
         return await ToCartDtoAsync(merged, await GetCurrencyAsync(intoCartId));
     }
+
+    private static bool IsLine(CartLine line, int productId, int sizeId) =>
+        line.ProductId == productId && line.SizeId == sizeId;
 
     private async Task<List<CartLine>> LoadLinesAsync(string cartId)
     {
@@ -122,13 +128,27 @@ public class CartService(IDistributedCache cache, AppDbContext db)
             .Where(p => productIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id);
 
+        var sizeIds = lines.Select(l => l.SizeId).ToList();
+        var sizes = await db.CanvasSizes
+            .Where(s => sizeIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id);
+
+        // Lines whose product or size no longer exists are skipped - this also drops lines saved
+        // before carts tracked a size (they deserialize with SizeId 0).
         var items = lines
-            .Where(l => products.ContainsKey(l.ProductId))
+            .Where(l => products.ContainsKey(l.ProductId) && sizes.ContainsKey(l.SizeId))
             .Select(l =>
             {
                 var product = products[l.ProductId];
-                var price = currency == "USD" ? product.PriceUsd ?? product.Price : product.Price;
-                return new CartItemDto(product.Id, product.Name, product.ImageUrl, price, l.Quantity);
+                var size = sizes[l.SizeId];
+                return new CartItemDto(
+                    product.Id,
+                    size.Id,
+                    product.Name,
+                    size.LabelFor(product.Orientation),
+                    product.ImageUrl,
+                    size.PriceIn(currency),
+                    l.Quantity);
             })
             .ToList();
 

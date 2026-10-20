@@ -14,6 +14,8 @@ type OrderItem = {
     id: number;
     productId: number;
     productName: string;
+    // Null only on orders placed before products were sold in multiple sizes.
+    sizeLabel: string | null;
     price: number;
     quantity: number;
     lineTotal: number;
@@ -217,6 +219,7 @@ export default function OrderDetailPage() {
                         <div>
                             <p className="font-heading text-base text-foreground">{item.productName}</p>
                             <p className="text-sm text-muted-foreground">
+                                {item.sizeLabel && <>{item.sizeLabel} · </>}
                                 {formatPrice(item.price, order.currency)} &times; {item.quantity}
                             </p>
                         </div>
@@ -275,7 +278,10 @@ export default function OrderDetailPage() {
                             if (remaining <= 0) return null;
                             return (
                                 <div key={item.id} className="flex items-center justify-between gap-4">
-                                    <span className="text-sm text-foreground">{item.productName}</span>
+                                    <span className="text-sm text-foreground">
+                                        {item.productName}
+                                        {item.sizeLabel && <span className="text-muted-foreground"> · {item.sizeLabel}</span>}
+                                    </span>
                                     <select
                                         value={returnQuantities[item.id] ?? 0}
                                         onChange={(e) =>

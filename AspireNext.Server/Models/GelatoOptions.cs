@@ -21,10 +21,20 @@ public class GelatoOptions
     // "normal" or "express" - see https://dashboard.gelato.com/docs/orders/shipment-methods/
     public string DefaultShipmentMethodUid { get; set; } = "normal";
 
-    // PLACEHOLDER - confirm the real catalog/attribute uids once you have API access
-    // (GET {ProductApiBaseUrl}/catalogs lists every catalogUid; GET {ProductApiBaseUrl}/catalogs/{catalogUid}
-    // returns that catalog's productAttributes, one of which enumerates its sizes). These two
-    // values are what GelatoService.GetSupportedCanvasSizesAsync queries against.
+    // The CanvasFrame attribute value every canvas is ordered with: "wood-fsc-2-cm", "-3-cm" or
+    // "-4-cm" (see docs/gelato-canvas-catalog.md). CanvasSize prices assume the 2 cm frame - reprice
+    // them if this changes.
+    public string CanvasFrameUid { get; set; } = "wood-fsc-2-cm";
+
+    // "draft" or "order". Gelato has no test/sandbox API key - this is the only thing standing
+    // between a submitted order and a real, charged print run. Draft orders are validated and
+    // priced but sit in the Gelato dashboard until confirmed by hand. Defaults to "draft" so only
+    // an explicit Gelato__OrderType=order (set for the live deployment) ever produces real orders.
+    public string OrderType { get; set; } = "draft";
+
+    // Confirmed against the live Product API (GET {ProductApiBaseUrl}/catalogs/canvas) - see
+    // docs/gelato-canvas-catalog.md. CanvasFormat's values are titled "500x700 mm" / "24x30 inches";
+    // these two values are what GelatoService.GetSupportedCanvasSizesAsync queries against.
     public string CanvasCatalogUid { get; set; } = "canvas";
-    public string CanvasSizeAttributeUid { get; set; } = "CanvasSize";
+    public string CanvasSizeAttributeUid { get; set; } = "CanvasFormat";
 }

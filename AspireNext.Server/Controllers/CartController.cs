@@ -19,7 +19,7 @@ public class CartController(CartService cartService) : ControllerBase
     {
         try
         {
-            return Ok(await cartService.AddItemAsync(CartCookie.ResolveCartKey(HttpContext), request.ProductId, request.Quantity));
+            return Ok(await cartService.AddItemAsync(CartCookie.ResolveCartKey(HttpContext), request.ProductId, request.SizeId, request.Quantity));
         }
         catch (KeyNotFoundException)
         {
@@ -31,13 +31,13 @@ public class CartController(CartService cartService) : ControllerBase
         }
     }
 
-    [HttpPut("items/{productId:int}")]
-    public async Task<IActionResult> UpdateItem(int productId, UpdateCartItemRequest request) =>
-        Ok(await cartService.UpdateItemAsync(CartCookie.ResolveCartKey(HttpContext), productId, request.Quantity));
+    [HttpPut("items/{productId:int}/{sizeId:int}")]
+    public async Task<IActionResult> UpdateItem(int productId, int sizeId, UpdateCartItemRequest request) =>
+        Ok(await cartService.UpdateItemAsync(CartCookie.ResolveCartKey(HttpContext), productId, sizeId, request.Quantity));
 
-    [HttpDelete("items/{productId:int}")]
-    public async Task<IActionResult> RemoveItem(int productId) =>
-        Ok(await cartService.RemoveItemAsync(CartCookie.ResolveCartKey(HttpContext), productId));
+    [HttpDelete("items/{productId:int}/{sizeId:int}")]
+    public async Task<IActionResult> RemoveItem(int productId, int sizeId) =>
+        Ok(await cartService.RemoveItemAsync(CartCookie.ResolveCartKey(HttpContext), productId, sizeId));
 
     [HttpPut("currency")]
     public async Task<IActionResult> SetCurrency(UpdateCartCurrencyRequest request)

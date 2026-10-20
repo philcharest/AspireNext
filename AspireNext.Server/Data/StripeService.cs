@@ -35,7 +35,7 @@ public class StripeService(IOptions<StripeOptions> options)
                     UnitAmountDecimal = item.Price * 100,
                     ProductData = new SessionLineItemPriceDataProductDataOptions
                     {
-                        Name = item.ProductName,
+                        Name = item.SizeLabel is null ? item.ProductName : $"{item.ProductName} ({item.SizeLabel})",
                     },
                 },
             })],

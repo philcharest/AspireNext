@@ -26,6 +26,8 @@ public class OrderService(AppDbContext db, CartService cartService, GelatoServic
             {
                 ProductId = i.ProductId,
                 ProductName = i.Name,
+                CanvasSizeId = i.SizeId,
+                SizeLabel = i.SizeLabel,
                 Price = i.Price,
                 Quantity = i.Quantity,
             })],
@@ -68,8 +70,8 @@ public class OrderService(AppDbContext db, CartService cartService, GelatoServic
     /// (Re)submits a paid order to Gelato for print fulfillment. Called automatically once a
     /// Stripe payment is confirmed (see MarkOrderPaidAsync); also exposed to admins
     /// (AdminOrdersController) to retry after fixing whatever caused FulfillmentStatus.Failed -
-    /// e.g. a product missing its Product.GelatoProductUid mapping, expected until your Gelato
-    /// account/catalog is configured.
+    /// e.g. a line item with no canvas size (orders placed before multi-size) or a size Gelato's
+    /// catalog no longer offers.
     /// </summary>
     public async Task<Order> ResubmitFulfillmentAsync(int orderId)
     {
@@ -106,25 +108,28 @@ public class OrderService(AppDbContext db, CartService cartService, GelatoServic
         var productIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.Products.Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
 
-        if (order.Items.Any(i => string.IsNullOrEmpty(products.GetValueOrDefault(i.ProductId)?.GelatoProductUid)))
+        var sizeIds = order.Items.Select(i => i.CanvasSizeId).OfType<int>().Distinct().ToList();
+        var sizes = await db.CanvasSizes.Where(s => sizeIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id);
+
+        if (order.Items.Any(i =>
+                !products.ContainsKey(i.ProductId) ||
+                i.CanvasSizeId is not { } sizeId ||
+                !sizes.ContainsKey(sizeId)))
         {
-            // At least one line item's product isn't mapped to a Gelato productUid yet (see
-            // Product.GelatoProductUid) - leave the order flagged so an admin can retry once it is.
+            // A line item's product or canvas size is missing (e.g. an order placed before
+            // products were sold by size) - there's no Gelato product to print it as, so leave the
+            // order flagged for an admin to sort out.
             order.FulfillmentStatus = FulfillmentStatus.Failed;
             await db.SaveChangesAsync();
             return;
         }
 
-        foreach (var product in products.Values)
+        foreach (var size in sizes.Values)
         {
-            if (product.CanvasWidthCm is not { } widthCm || product.CanvasHeightCm is not { } heightCm)
-                continue; // no physical size recorded for this product yet - nothing to validate
-
-            if (!await gelatoService.IsSupportedCanvasSizeAsync(widthCm, heightCm))
+            if (!await gelatoService.IsSupportedCanvasSizeAsync(size.WidthCm, size.HeightCm))
             {
-                // The product's recorded canvas size doesn't match anything in Gelato's live
-                // catalog - don't submit an order Gelato would just reject; flag it so an admin
-                // can fix the product's CanvasWidthCm/CanvasHeightCm before retrying.
+                // The size doesn't match anything in Gelato's live catalog anymore - don't submit
+                // an order Gelato would just reject; flag it so an admin can fix the size first.
                 order.FulfillmentStatus = FulfillmentStatus.Failed;
                 await db.SaveChangesAsync();
                 return;
@@ -141,13 +146,13 @@ public class OrderService(AppDbContext db, CartService cartService, GelatoServic
 
         var address = order.ShippingAddress;
         var request = new GelatoOrderRequest(
-            OrderType: "order",
+            OrderType: gelatoOptions.Value.OrderType,
             OrderReferenceId: order.Id.ToString(),
             CustomerReferenceId: order.UserId,
             Currency: order.Currency,
             Items: [.. order.Items.Select(i => new GelatoOrderItemRequest(
                 ItemReferenceId: i.Id.ToString(),
-                ProductUid: products[i.ProductId].GelatoProductUid!,
+                ProductUid: gelatoService.BuildCanvasProductUid(sizes[i.CanvasSizeId!.Value], products[i.ProductId].Orientation),
                 Files: [new GelatoFile("default", $"{frontendBaseUrl}{products[i.ProductId].ImageUrl}")],
                 Quantity: i.Quantity))],
             ShippingAddress: new GelatoAddress(
@@ -241,6 +246,6 @@ public class OrderService(AppDbContext db, CartService cartService, GelatoServic
         order.Status,
         order.Currency,
         order.FulfillmentStatus,
-        [.. order.Items.Select(i => new OrderItemDto(i.Id, i.ProductId, i.ProductName, i.Price, i.Quantity))],
+        [.. order.Items.Select(i => new OrderItemDto(i.Id, i.ProductId, i.ProductName, i.SizeLabel, i.Price, i.Quantity))],
         [.. returns.Select(r => ReturnDto.FromEntity(r, order.Items))]);
 }
