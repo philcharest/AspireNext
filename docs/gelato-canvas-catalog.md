@@ -59,6 +59,28 @@ Delivered cost is product plus the cheapest shipping, from order quotes run on 2
 
 Checkout doesn't charge shipping separately, so these prices include it. Gelato+ (up to 25–33% off products) would add to the margin without any price change.
 
-## Not available from the API
+## Print file spec (wrap and bleed)
 
-Wrap and bleed (how much image must extend past the front face to cover the frame sides) and the minimum DPI aren't in any API response; `contentAreas` is empty. Get them from Gelato's file-requirements docs, or from the preview of a draft order, before finalizing the generator's crop sizes.
+From [How do I upload my design for a canvas](https://support.gelato.com/en/articles/8996347-how-do-i-upload-my-design-for-a-canvas). The API doesn't return this.
+
+- **2 cm frame:** each side needs 34 mm of wrap plus 15 mm of bleed. That's 49 mm per side, so 98 mm is added to each dimension.
+- **4 cm frame:** each side needs 40 mm of wrap plus 15 mm of bleed. That's 55 mm per side, so 110 mm is added to each dimension.
+
+**Wrap style chosen: image wrap.** The artwork continues around the sides, which suits the nature and pattern art; mirrored edges looked wrong on some pieces. Each print file is made like this:
+
+1. Scale the master so its width equals the full file width.
+2. Centre-crop the height to the file height. The trimmed strips are on the back fold, not the front.
+
+Pixel figures below are for the 4992×7296 masters.
+
+| Front (cm) | File (mm) | Master height trimmed | Print PPI | Share of artwork on the front (width) |
+|---|---|---|---|---|
+| 20×30 | 298×398 | 8.6% | ~425 | 67% |
+| 30×45 | 398×548 | 5.8% | ~319 | 75% |
+| 40×60 | 498×698 | 4.1% | ~255 | 80% |
+| 50×70 | 598×798 | 8.7% | ~212 | 84% |
+| 50×75 | 598×848 | 3.0% | ~212 | 84% |
+| 60×90 | 698×998 | 2.2% | ~182 | 86% |
+| 70×100 | 798×1098 | 5.9% | ~159 | 88% |
+
+All sizes stay above about 150 PPI. The 4848 px-wide masters come out about 3% lower, which is about 154 PPI at 70×100. Product images on the site should show the front-face crop, not the whole master.
